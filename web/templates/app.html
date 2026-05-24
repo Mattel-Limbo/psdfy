@@ -53,6 +53,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            cursor: pointer;
         }
         .stat-card {
             border: 4px solid #000;
@@ -134,20 +135,48 @@
             align-items: center;
             gap: 12px;
         }
-        .logo-box {
-            background: #FF1493;
-            border: 3px solid #000;
-            width: 50px;
-            height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 28px;
-            font-weight: bold;
-        }
         .logo-text {
             font-size: 24px;
             font-weight: 900;
+        }
+        .result-item {
+            border: 3px solid #000;
+            padding: 16px;
+            margin-bottom: 12px;
+            background: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .result-info {
+            flex: 1;
+        }
+        .result-filename {
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        .result-date {
+            font-size: 12px;
+            color: #666;
+        }
+        .result-actions {
+            display: flex;
+            gap: 8px;
+        }
+        .btn-small {
+            background: #FF1493;
+            border: 2px solid #000;
+            color: white;
+            font-weight: 600;
+            padding: 6px 12px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .btn-small:hover {
+            transform: translate(-1px, -1px);
+        }
+        .hidden {
+            display: none;
         }
     </style>
 </head>
@@ -157,32 +186,24 @@
         <aside class="sidebar w-64 flex flex-col">
             <!-- Logo -->
             <div class="logo-header">
-                <div class="logo-box">🎨</div>
                 <div class="logo-text">Psdfy</div>
             </div>
 
             <!-- Menu -->
             <nav class="flex-1 p-4 space-y-2">
-                <div class="sidebar-item active">
-                    📊 Dashboard
+                <div class="sidebar-item active" data-page="generator">
+                    🎨 Generator
                 </div>
-                <div class="sidebar-item">
-                    🖼️ Konversi
-                </div>
-                <div class="sidebar-item">
-                    📁 File Saya
-                </div>
-                <div class="sidebar-item">
-                    ⚙️ Pengaturan
-                </div>
-                <div class="sidebar-item">
-                    ℹ️ Tentang
+                <div class="sidebar-item" data-page="results">
+                    📁 Hasil Generate
                 </div>
             </nav>
 
-            <!-- Issues Badge -->
-            <div class="m-4 p-3 bg-red-500 text-white border-3 border-black font-bold text-center rounded">
-                ⚠️ 0 Issues
+            <!-- Logout Button -->
+            <div class="m-4">
+                <button id="logoutBtn" class="w-full border-3 border-black bg-red-500 text-white font-bold py-2 px-4">
+                    🚪 Logout
+                </button>
             </div>
         </aside>
 
@@ -190,67 +211,25 @@
         <div class="flex-1 flex flex-col">
             <!-- Header -->
             <div class="header">
-                <div class="header-title">Dashboard</div>
-                <div class="flex items-center gap-4">
-                    <button class="text-2xl">🔔</button>
-                    <div class="header-user">
-                        <span>👤</span>
-                        <span>Admin</span>
-                        <span>▼</span>
-                    </div>
+                <div class="header-title" id="pageTitle">Generator</div>
+                <div class="header-user" id="logoutBtn2">
+                    <span>👤</span>
+                    <span>Admin</span>
+                    <span>▼</span>
                 </div>
             </div>
 
             <!-- Content -->
             <div class="flex-1 overflow-auto p-8">
-                <div class="mb-8">
-                    <h2 class="text-3xl font-black mb-2">Dashboard</h2>
-                    <p class="text-gray-600 font-bold">Selamat datang di Psdfy</p>
-                </div>
-
-                <!-- Stats Grid -->
-                <div class="grid grid-cols-4 gap-4 mb-8">
-                    <!-- Total Konversi -->
-                    <div class="stat-card yellow">
-                        <div>
-                            <div class="stat-label">Total Konversi</div>
-                            <div class="stat-value">0</div>
-                        </div>
-                        <div class="stat-icon">📊</div>
+                <!-- Generator Page -->
+                <div id="generatorPage" class="page-content">
+                    <div class="mb-8">
+                        <h2 class="text-3xl font-black mb-2">Generator</h2>
+                        <p class="text-gray-600 font-bold">Konversi gambar ke PSD</p>
                     </div>
 
-                    <!-- Berhasil -->
-                    <div class="stat-card magenta">
-                        <div>
-                            <div class="stat-label">Berhasil</div>
-                            <div class="stat-value">0</div>
-                        </div>
-                        <div class="stat-icon">✓</div>
-                    </div>
-
-                    <!-- Proses -->
-                    <div class="stat-card white">
-                        <div>
-                            <div class="stat-label">Dalam Proses</div>
-                            <div class="stat-value">0</div>
-                        </div>
-                        <div class="stat-icon">⏳</div>
-                    </div>
-
-                    <!-- Gagal -->
-                    <div class="stat-card cyan">
-                        <div>
-                            <div class="stat-label">Gagal</div>
-                            <div class="stat-value">0</div>
-                        </div>
-                        <div class="stat-icon">✗</div>
-                    </div>
-                </div>
-
-                <!-- Upload Section -->
-                <div class="grid grid-cols-2 gap-8">
-                    <!-- Upload Area -->
-                    <div class="bg-white border-4 border-black p-8">
+                    <!-- Upload Section -->
+                    <div class="bg-white border-4 border-black p-8 mb-8">
                         <h3 class="text-xl font-black mb-6">Upload Gambar</h3>
                         <div class="upload-area" id="dropZone">
                             <div class="text-5xl mb-4">📤</div>
@@ -261,60 +240,80 @@
                         <div id="fileInfo" class="mt-4 hidden">
                             <p class="font-bold">File dipilih: <span id="fileName"></span></p>
                         </div>
-                        <button class="btn-primary w-full mt-6">
-                            ➕ Konversi ke PSD
-                        </button>
                     </div>
 
                     <!-- Options -->
-                    <div class="bg-white border-4 border-black p-8">
+                    <div class="bg-white border-4 border-black p-8 mb-8">
                         <h3 class="text-xl font-black mb-6">Opsi Konversi</h3>
                         <div class="space-y-4">
                             <div>
                                 <label class="block font-bold mb-2">Mode</label>
-                                <select class="w-full border-3 border-black p-2 font-bold">
-                                    <option>Otomatis (SAM 2)</option>
-                                    <option>Text Prompt (GroundingDINO)</option>
+                                <select id="modeSelect" class="w-full border-3 border-black p-2 font-bold">
+                                    <option value="auto">Otomatis (SAM 2)</option>
+                                    <option value="prompt">Text Prompt (GroundingDINO)</option>
                                 </select>
+                            </div>
+                            <div id="promptDiv" class="hidden">
+                                <label class="block font-bold mb-2">Prompt</label>
+                                <input type="text" id="promptInput" placeholder="e.g., person . table . book" class="w-full border-3 border-black p-2 font-bold" />
                             </div>
                             <div>
                                 <label class="block font-bold mb-2">
-                                    <input type="checkbox" class="mr-2" checked />
+                                    <input type="checkbox" id="previewsCheckbox" class="mr-2" />
                                     Kembalikan Preview PNG
                                 </label>
                             </div>
                             <div>
                                 <label class="block font-bold mb-2">
-                                    <input type="checkbox" class="mr-2" checked />
+                                    <input type="checkbox" id="metadataCheckbox" class="mr-2" checked />
                                     Kembalikan Metadata
                                 </label>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Progress Section -->
-                <div id="progressDiv" class="mt-8 hidden">
-                    <div class="bg-white border-4 border-black p-8">
-                        <p class="font-bold mb-4">Mengkonversi...</p>
-                        <div class="w-full bg-gray-300 border-3 border-black h-6">
-                            <div id="progressBar" class="bg-FFD700 h-full" style="width: 0%"></div>
+                    <!-- Convert Button -->
+                    <button id="convertBtn" class="btn-primary w-full py-3 text-lg mb-8">
+                        ➕ Konversi ke PSD
+                    </button>
+
+                    <!-- Progress Section -->
+                    <div id="progressDiv" class="hidden">
+                        <div class="bg-white border-4 border-black p-8">
+                            <p class="font-bold mb-4">Mengkonversi...</p>
+                            <div class="w-full bg-gray-300 border-3 border-black h-6">
+                                <div id="progressBar" class="bg-FFD700 h-full" style="width: 0%"></div>
+                            </div>
+                            <p id="progressText" class="text-sm font-bold mt-2">Inisialisasi...</p>
                         </div>
-                        <p id="progressText" class="text-sm font-bold mt-2">Inisialisasi...</p>
+                    </div>
+
+                    <!-- Results Section -->
+                    <div id="resultsDiv" class="hidden">
+                        <div class="bg-white border-4 border-black p-8">
+                            <h3 class="text-2xl font-black mb-6">✓ Konversi Selesai</h3>
+                            <div class="space-y-3">
+                                <a id="downloadLink" href="#" class="btn-primary block text-center py-3">
+                                    ⬇️ Download PSD
+                                </a>
+                                <button id="newConvertBtn" class="w-full border-3 border-black bg-gray-200 font-bold py-3">
+                                    Konversi Lagi
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <!-- Results Section -->
-                <div id="resultsDiv" class="mt-8 hidden">
+                <!-- Results Page -->
+                <div id="resultsPage" class="page-content hidden">
+                    <div class="mb-8">
+                        <h2 class="text-3xl font-black mb-2">Hasil Generate</h2>
+                        <p class="text-gray-600 font-bold">Daftar file yang telah dikonversi</p>
+                    </div>
+
                     <div class="bg-white border-4 border-black p-8">
-                        <h3 class="text-2xl font-black mb-6">✓ Konversi Selesai</h3>
-                        <div class="space-y-3">
-                            <a id="downloadLink" href="#" class="btn-primary block text-center py-3">
-                                ⬇️ Download PSD
-                            </a>
-                            <button id="newConvertBtn" class="w-full border-3 border-black bg-gray-200 font-bold py-3">
-                                Konversi Lagi
-                            </button>
+                        <div id="resultsList">
+                            <p class="text-center text-gray-600 font-bold py-8">Belum ada hasil konversi</p>
                         </div>
                     </div>
                 </div>
@@ -323,6 +322,39 @@
     </div>
 
     <script>
+        // Page navigation
+        document.querySelectorAll('.sidebar-item').forEach(item => {
+            item.addEventListener('click', () => {
+                const page = item.dataset.page;
+                
+                // Update active state
+                document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+                item.classList.add('active');
+                
+                // Update page title
+                document.getElementById('pageTitle').textContent = page === 'generator' ? 'Generator' : 'Hasil Generate';
+                
+                // Show/hide pages
+                document.querySelectorAll('.page-content').forEach(p => p.classList.add('hidden'));
+                document.getElementById(page === 'generator' ? 'generatorPage' : 'resultsPage').classList.remove('hidden');
+                
+                // Load results if on results page
+                if (page === 'results') {
+                    loadResults();
+                }
+            });
+        });
+
+        // Mode toggle
+        document.getElementById('modeSelect').addEventListener('change', (e) => {
+            const promptDiv = document.getElementById('promptDiv');
+            if (e.target.value === 'prompt') {
+                promptDiv.classList.remove('hidden');
+            } else {
+                promptDiv.classList.add('hidden');
+            }
+        });
+
         // File upload
         const dropZone = document.getElementById('dropZone');
         const fileInput = document.getElementById('fileInput');
@@ -357,8 +389,106 @@
             }
         });
 
+        // Convert
+        document.getElementById('convertBtn').addEventListener('click', async () => {
+            if (!selectedFile) {
+                alert('Pilih gambar terlebih dahulu');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('mode', document.getElementById('modeSelect').value);
+            if (document.getElementById('modeSelect').value === 'prompt') {
+                formData.append('prompt', document.getElementById('promptInput').value);
+            }
+            formData.append('return_previews', document.getElementById('previewsCheckbox').checked);
+            formData.append('return_metadata', document.getElementById('metadataCheckbox').checked);
+
+            document.getElementById('convertBtn').disabled = true;
+            document.getElementById('progressDiv').classList.remove('hidden');
+            document.getElementById('resultsDiv').classList.add('hidden');
+
+            try {
+                const response = await fetch('/ui/convert', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    
+                    // Save to local storage
+                    const results = JSON.parse(localStorage.getItem('psdfy_results') || '[]');
+                    results.push({
+                        id: Date.now(),
+                        filename: selectedFile.name,
+                        psdUrl: data.psd.url,
+                        date: new Date().toLocaleString(),
+                        mode: document.getElementById('modeSelect').value
+                    });
+                    localStorage.setItem('psdfy_results', JSON.stringify(results));
+                    
+                    document.getElementById('downloadLink').href = data.psd.url;
+                    document.getElementById('progressDiv').classList.add('hidden');
+                    document.getElementById('resultsDiv').classList.remove('hidden');
+                } else {
+                    throw new Error('Konversi gagal');
+                }
+            } catch (error) {
+                alert('Error: ' + error.message);
+                document.getElementById('progressDiv').classList.add('hidden');
+            } finally {
+                document.getElementById('convertBtn').disabled = false;
+            }
+        });
+
+        // New convert
+        document.getElementById('newConvertBtn').addEventListener('click', () => {
+            selectedFile = null;
+            document.getElementById('fileInfo').classList.add('hidden');
+            document.getElementById('resultsDiv').classList.add('hidden');
+            fileInput.value = '';
+        });
+
+        // Load results
+        function loadResults() {
+            const results = JSON.parse(localStorage.getItem('psdfy_results') || '[]');
+            const resultsList = document.getElementById('resultsList');
+            
+            if (results.length === 0) {
+                resultsList.innerHTML = '<p class="text-center text-gray-600 font-bold py-8">Belum ada hasil konversi</p>';
+                return;
+            }
+            
+            resultsList.innerHTML = results.map(result => `
+                <div class="result-item">
+                    <div class="result-info">
+                        <div class="result-filename">${result.filename}</div>
+                        <div class="result-date">${result.date}</div>
+                    </div>
+                    <div class="result-actions">
+                        <a href="${result.psdUrl}" download class="btn-small">⬇️ Download</a>
+                        <button class="btn-small" onclick="deleteResult(${result.id})">🗑️ Hapus</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function deleteResult(id) {
+            const results = JSON.parse(localStorage.getItem('psdfy_results') || '[]');
+            const filtered = results.filter(r => r.id !== id);
+            localStorage.setItem('psdfy_results', JSON.stringify(filtered));
+            loadResults();
+        }
+
         // Logout
-        document.querySelector('.header-user').addEventListener('click', async () => {
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await fetch('/ui/logout', { method: 'POST' });
+            window.location.href = '/login';
+        });
+
+        document.getElementById('logoutBtn2').addEventListener('click', async () => {
             await fetch('/ui/logout', { method: 'POST' });
             window.location.href = '/login';
         });

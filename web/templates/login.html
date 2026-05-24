@@ -14,19 +14,6 @@
             border: 4px solid #000;
             box-shadow: 8px 8px 0px rgba(0, 0, 0, 0.3);
         }
-        .logo-box {
-            background: #FF1493;
-            border: 3px solid #000;
-            width: 80px;
-            height: 80px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 40px;
-            font-weight: bold;
-            color: #000;
-            margin: 0 auto 20px;
-        }
         .input-field {
             border: 3px solid #000;
             padding: 12px 16px;
@@ -55,14 +42,6 @@
             transform: translate(0, 0);
             box-shadow: 0 0 0px rgba(0, 0, 0, 0.3);
         }
-        .signup-link {
-            color: #FF1493;
-            font-weight: 700;
-            text-decoration: none;
-        }
-        .signup-link:hover {
-            text-decoration: underline;
-        }
         .error-message {
             background: #FF6B6B;
             border: 3px solid #000;
@@ -76,11 +55,8 @@
 <body class="min-h-screen flex items-center justify-center p-4">
     <div class="w-full max-w-md">
         <div class="login-box bg-white p-12">
-            <!-- Logo -->
-            <div class="logo-box">🎨</div>
-            
             <!-- Title -->
-            <h1 class="text-center text-4xl font-black mb-2">Psdfy</h1>
+            <h1 class="text-center text-5xl font-black mb-2">Psdfy</h1>
             <p class="text-center text-lg font-bold mb-8">Masuk ke akun Anda</p>
 
             <!-- Error Message -->
@@ -89,19 +65,7 @@
             </div>
 
             <!-- Login Form -->
-            <form id="loginForm" class="space-y-4">
-                <div>
-                    <label class="block text-sm font-bold mb-2">EMAIL</label>
-                    <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        class="input-field w-full"
-                        placeholder="nama@email.com"
-                        value="admin@psdfy.com"
-                    />
-                </div>
-
+            <form id="loginForm" class="space-y-6">
                 <div>
                     <label class="block text-sm font-bold mb-2">PASSWORD</label>
                     <input
@@ -121,11 +85,6 @@
                     Masuk
                 </button>
             </form>
-
-            <!-- Signup Link -->
-            <div class="text-center mt-6 text-sm font-bold">
-                Belum punya akun? <a href="#" class="signup-link">Daftar sekarang</a>
-            </div>
         </div>
     </div>
 
