@@ -3,11 +3,15 @@ from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 from app.core.config import settings
 from app.ui_app.routes import pages, auth, proxy
+from app.middleware.ui_session import UISessionMiddleware
 
 
 def build_ui_app() -> FastAPI:
     """Build and configure the UI FastAPI application."""
     app = FastAPI(title="UI App", version="1.0.0")
+    
+    # Add UI session middleware (must be added before routes)
+    app.add_middleware(UISessionMiddleware)
     
     @app.get("/health")
     def health_check():
