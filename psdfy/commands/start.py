@@ -104,6 +104,13 @@ def start_command(
     run_dir = config_manager.run_dir
     run_dir.mkdir(parents=True, exist_ok=True)
     
+    # Get project root (parent of psdfy package)
+    project_root = Path(__file__).parent.parent.parent
+    
+    # Prepare environment with PYTHONPATH
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(project_root)
+    
     # Start API server
     api_log = run_dir / "api.log"
     api_pid_file = run_dir / "api.pid"
@@ -113,12 +120,16 @@ def start_command(
     if foreground:
         # Run in foreground
         try:
-            subprocess.run([
-                sys.executable, "-m", "uvicorn",
-                "app.main:api_app",
-                "--host", host,
-                "--port", str(api_port),
-            ])
+            subprocess.run(
+                [
+                    sys.executable, "-m", "uvicorn",
+                    "app.main:api_app",
+                    "--host", host,
+                    "--port", str(api_port),
+                ],
+                cwd=str(project_root),
+                env=env,
+            )
         except KeyboardInterrupt:
             typer.echo("\nShutdown requested")
     else:
@@ -133,6 +144,8 @@ def start_command(
                 ],
                 stdout=log_file,
                 stderr=subprocess.STDOUT,
+                cwd=str(project_root),
+                env=env,
             )
         
         # Save PID
@@ -155,6 +168,8 @@ def start_command(
                 ],
                 stdout=log_file,
                 stderr=subprocess.STDOUT,
+                cwd=str(project_root),
+                env=env,
             )
         
         # Save PID
@@ -168,11 +183,23 @@ def start_command(
             typer.echo(f"   ✓ API ready: http://{host}:{api_port}")
         else:
             typer.echo(f"   ✗ API failed to start", err=True)
+            # Show error log
+            if api_log.exists():
+                typer.echo(f"\n   API Log ({api_log}):", err=True)
+                with open(api_log) as f:
+                    for line in f.readlines()[-10:]:
+                        typer.echo(f"   {line.rstrip()}", err=True)
         
         if wait_for_health(host, ui_port):
             typer.echo(f"   ✓ UI ready: http://{host}:{ui_port}")
         else:
             typer.echo(f"   ✗ UI failed to start", err=True)
+            # Show error log
+            if ui_log.exists():
+                typer.echo(f"\n   UI Log ({ui_log}):", err=True)
+                with open(ui_log) as f:
+                    for line in f.readlines()[-10:]:
+                        typer.echo(f"   {line.rstrip()}", err=True)
         
         typer.echo("\n✅ Services started!")
         typer.echo(f"\nOpen your browser: http://{host}:{ui_port}")
