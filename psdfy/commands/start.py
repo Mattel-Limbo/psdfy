@@ -5,11 +5,9 @@ import subprocess
 import time
 import socket
 from pathlib import Path
-from typing import Optional
+from typing import Optional, List
 import sys
 import os
-
-from psdfy.config import get_config_manager
 
 
 def is_port_free(host: str, port: int) -> bool:
@@ -20,6 +18,54 @@ def is_port_free(host: str, port: int) -> bool:
         sock.close()
         return True
     except OSError:
+        return False
+
+
+def get_process_by_port(port: int) -> Optional[int]:
+    """Find process PID listening on specific port (Windows only)."""
+    if sys.platform != "win32":
+        return None
+    
+    try:
+        result = subprocess.run(
+            ["netstat", "-ano"],
+            capture_output=True,
+            text=True,
+            timeout=5
+        )
+        
+        for line in result.stdout.split('\n'):
+            if f":{port}" in line and "LISTENING" in line:
+                parts = line.split()
+                if parts:
+                    try:
+                        return int(parts[-1])
+                    except (ValueError, IndexError):
+                        pass
+        return None
+    except Exception:
+        return None
+
+
+def kill_process_by_port(port: int) -> bool:
+    """Kill process listening on specific port."""
+    if sys.platform != "win32":
+        return False
+    
+    pid = get_process_by_port(port)
+    if not pid:
+        return False
+    
+    try:
+        subprocess.run(
+            ["taskkill", "/PID", str(pid), "/F"],
+            capture_output=True,
+            timeout=5,
+            check=False
+        )
+        time.sleep(0.5)
+        return not get_process_by_port(port)
+    except Exception:
         return False
 
 
@@ -74,12 +120,42 @@ def start_command(
     
     typer.echo("🚀 Starting psdfy service...")
     
-    # Check if already running
-    if not is_port_free(host, api_port) or not is_port_free(host, ui_port):
-        typer.echo("⚠️  Service already running on these ports")
-        typer.echo(f"   API: http://{host}:{api_port}")
-        typer.echo(f"   UI: http://{host}:{ui_port}")
-        return
+    # Check if ports are already in use
+    api_free = is_port_free(host, api_port)
+    ui_free = is_port_free(host, ui_port)
+    
+    if not api_free or not ui_free:
+        typer.echo("\n⚠️  Ports already in use:")
+        if not api_free:
+            typer.echo(f"   API port {api_port} is in use")
+        if not ui_free:
+            typer.echo(f"   UI port {ui_port} is in use")
+        
+        # Try to kill existing processes on these ports
+        typer.echo("\n🔄 Attempting to kill existing processes...")
+        
+        killed_api = False
+        killed_ui = False
+        
+        if not api_free:
+            if kill_process_by_port(api_port):
+                typer.echo(f"   ✓ Killed process on port {api_port}")
+                killed_api = True
+            else:
+                typer.echo(f"   ✗ Could not kill process on port {api_port}")
+        
+        if not ui_free:
+            if kill_process_by_port(ui_port):
+                typer.echo(f"   ✓ Killed process on port {ui_port}")
+                killed_ui = True
+            else:
+                typer.echo(f"   ✗ Could not kill process on port {ui_port}")
+        
+        # Check again if ports are free
+        time.sleep(1)
+        if not is_port_free(host, api_port) or not is_port_free(host, ui_port):
+            typer.echo("\n✗ Could not free ports. Please manually stop the services.", err=True)
+            return
     
     # Pre-flight checks
     typer.echo("\n✓ Pre-flight checks:")
