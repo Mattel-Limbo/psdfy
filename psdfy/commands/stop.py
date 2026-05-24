@@ -60,6 +60,26 @@ def stop_command(
             typer.echo(f"   {name} (PID {pid})")
         return
     
+    def is_process_running(pid: int) -> bool:
+        """Check if process is still running."""
+        try:
+            if sys.platform == "win32":
+                # Windows: use tasklist to check
+                result = subprocess.run(
+                    ["tasklist", "/FI", f"PID eq {pid}"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                # If PID is in output, process is running
+                return str(pid) in result.stdout
+            else:
+                # Unix: send signal 0 to check
+                os.kill(pid, 0)
+                return True
+        except (OSError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
+            return False
+    
     # Stop services
     for name, pid, pid_file in pids_to_stop:
         typer.echo(f"\n📍 Stopping {name} (PID {pid})...")
@@ -67,41 +87,46 @@ def stop_command(
         try:
             # Try graceful shutdown first
             if sys.platform == "win32":
-                # Windows
-                subprocess.run(["taskkill", "/PID", str(pid)], check=False)
+                # Windows: taskkill without /F for graceful shutdown
+                subprocess.run(
+                    ["taskkill", "/PID", str(pid)],
+                    capture_output=True,
+                    timeout=5,
+                    check=False
+                )
             else:
-                # Unix
+                # Unix: SIGTERM for graceful shutdown
                 os.kill(pid, signal.SIGTERM)
             
-            # Wait for graceful shutdown
-            for _ in range(10):
+            # Wait for graceful shutdown (up to 5 seconds)
+            for i in range(10):
+                if not is_process_running(pid):
+                    typer.echo(f"   ✓ Stopped gracefully")
+                    break
+                time.sleep(0.5)
+            else:
+                # Process still running after graceful attempt
+                typer.echo(f"   ⚠️  Graceful shutdown timeout, force killing...")
+                
                 try:
                     if sys.platform == "win32":
-                        # Check if process still exists
                         subprocess.run(
-                            ["tasklist", "/FI", f"PID eq {pid}"],
+                            ["taskkill", "/PID", str(pid), "/F"],
                             capture_output=True,
-                            check=True
+                            timeout=5,
+                            check=False
                         )
                     else:
-                        os.kill(pid, 0)  # Check if process exists
-                    time.sleep(0.5)
-                except (OSError, subprocess.CalledProcessError):
-                    # Process terminated
-                    break
-            
-            # Force kill if still running
-            if force:
-                try:
-                    if sys.platform == "win32":
-                        subprocess.run(["taskkill", "/PID", str(pid), "/F"], check=False)
-                    else:
                         os.kill(pid, signal.SIGKILL)
-                    typer.echo(f"   ✓ Force killed")
-                except OSError:
-                    pass
-            else:
-                typer.echo(f"   ✓ Stopped")
+                    
+                    # Verify it's dead
+                    time.sleep(0.5)
+                    if not is_process_running(pid):
+                        typer.echo(f"   ✓ Force killed")
+                    else:
+                        typer.echo(f"   ✗ Could not terminate process", err=True)
+                except Exception as e:
+                    typer.echo(f"   ✗ Force kill failed: {e}", err=True)
         
         except Exception as e:
             typer.echo(f"   ✗ Error: {e}", err=True)
