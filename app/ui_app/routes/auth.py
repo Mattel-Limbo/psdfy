@@ -56,6 +56,10 @@ async def login(
     )
     cookie_value = signer.sign(session_id)
     
+    # Ensure cookie_value is string (not bytes)
+    if isinstance(cookie_value, bytes):
+        cookie_value = cookie_value.decode('utf-8')
+    
     # Create response
     response = Response(
         content='{"status": "success", "message": "Logged in"}',
