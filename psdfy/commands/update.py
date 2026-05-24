@@ -25,6 +25,15 @@ def update_command(
         typer.echo("requests not installed. Install with: pip install requests", err=True)
         return
     
+    # Get current version
+    try:
+        import psdfy
+        current_version = getattr(psdfy, "__version__", "0.1.0")
+    except Exception:
+        current_version = "0.1.0"
+    
+    typer.echo(f"Current version: {current_version}")
+    
     # Check PyPI for latest version
     try:
         response = requests.get("https://pypi.org/pypi/psdfy/json", timeout=5)
@@ -33,11 +42,6 @@ def update_command(
         pypi_data = response.json()
         latest_version = pypi_data["info"]["version"]
         
-        # Get current version
-        import psdfy
-        current_version = getattr(psdfy, "__version__", "0.1.0")
-        
-        typer.echo(f"Current version: {current_version}")
         typer.echo(f"Latest version: {latest_version}")
         
         if current_version == latest_version:
@@ -50,7 +54,7 @@ def update_command(
             typer.echo("(dry-run mode - no changes made)")
             return
         
-        # Upgrade via pipx
+        # Upgrade via pip
         typer.echo("\n⬆️  Upgrading psdfy...")
         
         result = subprocess.run(
@@ -67,5 +71,16 @@ def update_command(
         else:
             typer.echo(f"✗ Upgrade failed: {result.stderr}", err=True)
     
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            typer.echo("\n⚠️  psdfy is not published to PyPI yet")
+            typer.echo("\nTo update from source:")
+            typer.echo("  1. Pull latest changes: git pull")
+            typer.echo("  2. Reinstall: pip install -e .")
+            typer.echo("  3. Restart: psdfy stop && psdfy start")
+        else:
+            typer.echo(f"✗ Error checking PyPI: {e}", err=True)
+    
     except Exception as e:
         typer.echo(f"✗ Error checking for updates: {e}", err=True)
+
