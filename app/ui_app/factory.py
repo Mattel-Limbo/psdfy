@@ -13,8 +13,7 @@ def build_ui_app() -> FastAPI:
     app = FastAPI(title="UI App", version="1.0.0")
     
     # Add UI session middleware (must be added before routes)
-    # Temporarily disabled for testing
-    # app.add_middleware(UISessionMiddleware)
+    app.add_middleware(UISessionMiddleware)
     
     @app.get("/health")
     def health_check():
