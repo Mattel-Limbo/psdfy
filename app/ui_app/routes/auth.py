@@ -8,7 +8,6 @@ import itsdangerous
 
 from app.core.config import settings
 from app.core.errors import UnauthorizedError
-from app.core.security import SignatureManager
 
 router = APIRouter(tags=["ui-auth"])
 
@@ -42,20 +41,14 @@ async def login(
     Raises:
         UnauthorizedError: If password is incorrect
     """
-    # Get signature manager from app state
-    signature_manager: SignatureManager = request.app.state.signature_manager
-    
-    # Verify password (for now, hardcoded default)
-    # TODO: Load from config.toml in Issue #15
+    # Verify password (from config or default)
     correct_password = settings.UI_PASSWORD
     
     if password != correct_password:
         raise UnauthorizedError("Invalid password")
     
-    # Generate session
-    session_id, client_signature = signature_manager.issue_signature(
-        client_secret=settings.SIGNATURE_SECRET_PEPPER or "default-secret"
-    )
+    # Generate session ID
+    session_id = str(uuid.uuid4())
     
     # Create signed cookie
     signer = itsdangerous.TimestampSigner(
@@ -93,23 +86,6 @@ async def logout(request: Request):
     Returns:
         Logout response
     """
-    # Get signature manager from app state
-    signature_manager: SignatureManager = request.app.state.signature_manager
-    
-    # Get session from cookie
-    session_cookie = request.cookies.get(settings.UI_COOKIE_NAME)
-    
-    if session_cookie:
-        # Try to revoke session
-        try:
-            signer = itsdangerous.TimestampSigner(
-                settings.SIGNATURE_SECRET_PEPPER or "default-secret"
-            )
-            session_id = signer.unsign(session_cookie)
-            signature_manager.revoke_session(session_id)
-        except Exception:
-            pass
-    
     # Create response
     response = Response(
         content='{"status": "success", "message": "Logged out"}',
@@ -121,3 +97,4 @@ async def logout(request: Request):
     response.delete_cookie(key=settings.UI_COOKIE_NAME)
     
     return response
+
