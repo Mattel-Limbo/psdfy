@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Psdfy - Convert Images to PSD</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50">
+    <div class="flex h-screen">
+        <!-- Side Menu -->
+        <aside class="w-64 bg-slate-900 text-white flex flex-col">
+            <!-- Logo -->
+            <div class="p-6 border-b border-slate-700">
+                <h1 class="text-2xl font-bold">Psdfy</h1>
+                <p class="text-slate-400 text-sm mt-1">Image to PSD</p>
+            </div>
+
+            <!-- Menu Items -->
+            <nav class="flex-1 p-4 space-y-2">
+                <a href="#" class="menu-item active px-4 py-3 rounded-lg bg-blue-600 text-white font-medium transition">
+                    <span class="inline-block mr-3">📤</span>Convert
+                </a>
+                <a href="#" class="menu-item px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition opacity-50 cursor-not-allowed">
+                    <span class="inline-block mr-3">⚙️</span>Settings
+                </a>
+                <a href="#" class="menu-item px-4 py-3 rounded-lg text-slate-300 hover:bg-slate-800 transition opacity-50 cursor-not-allowed">
+                    <span class="inline-block mr-3">ℹ️</span>About
+                </a>
+            </nav>
+
+            <!-- Logout -->
+            <div class="p-4 border-t border-slate-700">
+                <button id="logoutBtn" class="w-full px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm font-medium transition">
+                    Logout
+                </button>
+            </div>
+        </aside>
+
+        <!-- Main Content -->
+        <main class="flex-1 flex flex-col">
+            <!-- Header -->
+            <header class="bg-white border-b border-slate-200 px-8 py-4 flex items-center justify-between">
+                <h2 class="text-2xl font-bold text-slate-900">Convert Image to PSD</h2>
+                <div class="text-sm text-slate-600">
+                    <span id="userInfo">Logged in</span>
+                </div>
+            </header>
+
+            <!-- Content Area -->
+            <div class="flex-1 overflow-auto p-8">
+                <div id="convertPanel" class="max-w-2xl mx-auto">
+                    <!-- Upload Area -->
+                    <div class="bg-white rounded-lg shadow-md p-8 mb-6">
+                        <h3 class="text-lg font-semibold text-slate-900 mb-4">Upload Image</h3>
+                        
+                        <!-- Drag & Drop Area -->
+                        <div id="dropZone" class="border-2 border-dashed border-slate-300 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition">
+                            <div class="text-4xl mb-2">📁</div>
+                            <p class="text-slate-700 font-medium">Drag and drop your image here</p>
+                            <p class="text-slate-500 text-sm mt-1">or click to browse</p>
+                            <input type="file" id="fileInput" accept="image/*" class="hidden" />
+                        </div>
+
+                        <!-- File Info -->
+                        <div id="fileInfo" class="mt-4 hidden">
+                            <p class="text-sm text-slate-600">
+                                Selected: <span id="fileName" class="font-medium text-slate-900"></span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Options -->
+                    <div class="bg-white rounded-lg shadow-md p-8 mb-6">
+                        <h3 class="text-lg font-semibold text-slate-900 mb-4">Options</h3>
+                        
+                        <div class="space-y-4">
+                            <div>
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Mode</label>
+                                <select id="modeSelect" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                                    <option value="auto">Automatic (SAM 2)</option>
+                                    <option value="prompt">Text Prompt (GroundingDINO)</option>
+                                </select>
+                            </div>
+
+                            <div id="promptDiv" class="hidden">
+                                <label class="block text-sm font-medium text-slate-700 mb-2">Prompt</label>
+                                <input type="text" id="promptInput" placeholder="e.g., person . table . book" class="w-full px-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" />
+                            </div>
+
+                            <div class="flex items-center space-x-4">
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="previewsCheckbox" class="w-4 h-4 text-blue-600 rounded" />
+                                    <span class="ml-2 text-sm text-slate-700">Return preview PNGs</span>
+                                </label>
+                                <label class="flex items-center">
+                                    <input type="checkbox" id="metadataCheckbox" checked class="w-4 h-4 text-blue-600 rounded" />
+                                    <span class="ml-2 text-sm text-slate-700">Return metadata</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Convert Button -->
+                    <button id="convertBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed">
+                        Convert to PSD
+                    </button>
+
+                    <!-- Progress -->
+                    <div id="progressDiv" class="mt-6 hidden">
+                        <div class="bg-white rounded-lg shadow-md p-6">
+                            <p class="text-sm font-medium text-slate-700 mb-2">Converting...</p>
+                            <div class="w-full bg-slate-200 rounded-full h-2">
+                                <div id="progressBar" class="bg-blue-600 h-2 rounded-full" style="width: 0%"></div>
+                            </div>
+                            <p id="progressText" class="text-xs text-slate-600 mt-2">Initializing...</p>
+                        </div>
+                    </div>
+
+                    <!-- Results -->
+                    <div id="resultsDiv" class="mt-6 hidden">
+                        <div class="bg-white rounded-lg shadow-md p-6">
+                            <h3 class="text-lg font-semibold text-slate-900 mb-4">✓ Conversion Complete</h3>
+                            <div class="space-y-3">
+                                <a id="downloadLink" href="#" class="block w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg text-center transition">
+                                    Download PSD
+                                </a>
+                                <button id="newConvertBtn" class="w-full bg-slate-200 hover:bg-slate-300 text-slate-900 font-semibold py-2 px-4 rounded-lg transition">
+                                    Convert Another
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Error -->
+                    <div id="errorDiv" class="mt-6 hidden">
+                        <div class="bg-red-50 border border-red-200 rounded-lg p-6">
+                            <p class="text-red-700 font-medium">Error</p>
+                            <p id="errorText" class="text-red-600 text-sm mt-2"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // Mode toggle
+        document.getElementById('modeSelect').addEventListener('change', (e) => {
+            const promptDiv = document.getElementById('promptDiv');
+            if (e.target.value === 'prompt') {
+                promptDiv.classList.remove('hidden');
+            } else {
+                promptDiv.classList.add('hidden');
+            }
+        });
+
+        // File upload
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        let selectedFile = null;
+
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                selectedFile = e.target.files[0];
+                document.getElementById('fileName').textContent = selectedFile.name;
+                document.getElementById('fileInfo').classList.remove('hidden');
+            }
+        });
+
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('border-blue-500', 'bg-blue-50');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('border-blue-500', 'bg-blue-50');
+            if (e.dataTransfer.files.length > 0) {
+                selectedFile = e.dataTransfer.files[0];
+                document.getElementById('fileName').textContent = selectedFile.name;
+                document.getElementById('fileInfo').classList.remove('hidden');
+            }
+        });
+
+        // Convert
+        document.getElementById('convertBtn').addEventListener('click', async () => {
+            if (!selectedFile) {
+                alert('Please select an image');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('mode', document.getElementById('modeSelect').value);
+            if (document.getElementById('modeSelect').value === 'prompt') {
+                formData.append('prompt', document.getElementById('promptInput').value);
+            }
+            formData.append('return_previews', document.getElementById('previewsCheckbox').checked);
+            formData.append('return_metadata', document.getElementById('metadataCheckbox').checked);
+
+            document.getElementById('convertBtn').disabled = true;
+            document.getElementById('progressDiv').classList.remove('hidden');
+            document.getElementById('resultsDiv').classList.add('hidden');
+            document.getElementById('errorDiv').classList.add('hidden');
+
+            try {
+                const response = await fetch('/ui/convert', {
+                    method: 'POST',
+                    body: formData,
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    document.getElementById('downloadLink').href = data.psd.url;
+                    document.getElementById('progressDiv').classList.add('hidden');
+                    document.getElementById('resultsDiv').classList.remove('hidden');
+                } else {
+                    throw new Error('Conversion failed');
+                }
+            } catch (error) {
+                document.getElementById('errorText').textContent = error.message;
+                document.getElementById('progressDiv').classList.add('hidden');
+                document.getElementById('errorDiv').classList.remove('hidden');
+            } finally {
+                document.getElementById('convertBtn').disabled = false;
+            }
+        });
+
+        // New convert
+        document.getElementById('newConvertBtn').addEventListener('click', () => {
+            selectedFile = null;
+            document.getElementById('fileInfo').classList.add('hidden');
+            document.getElementById('resultsDiv').classList.add('hidden');
+            fileInput.value = '';
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', async () => {
+            await fetch('/ui/logout', { method: 'POST' });
+            window.location.href = '/login';
+        });
+    </script>
+</body>
+</html>

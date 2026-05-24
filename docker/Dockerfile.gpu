@@ -1,0 +1,42 @@
+FROM nvidia/cuda:12.1.1-devel-ubuntu22.04
+
+# Set working directory
+WORKDIR /app
+
+# Install Python and dependencies
+RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3.11-venv \
+    python3-pip \
+    git \
+    wget \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create virtual environment
+RUN python3.11 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Copy project files
+COPY . /app
+
+# Install psdfy with GPU support
+RUN pip install --upgrade pip && \
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
+    pip install -e .
+
+# Create directories
+RUN mkdir -p /root/.psdfy/weights /root/.psdfy/outputs /root/.psdfy/run
+
+# Download model weights
+RUN python3 -c "from psdfy.weights import WeightsDownloader; d = WeightsDownloader('/root/.psdfy/weights'); print('Weights ready')"
+
+# Expose ports
+EXPOSE 3456 3457
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD curl -f http://localhost:3456/health || exit 1
+
+# Start services
+CMD ["psdfy", "start", "--foreground"]

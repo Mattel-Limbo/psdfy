@@ -1,12 +1,33 @@
 """Convert routes for the API app."""
 
+import uuid
+import time
+from datetime import datetime
 from fastapi import APIRouter, UploadFile, File, Form, Request
-from typing import Optional
+from typing import Optional, List
+import numpy as np
+
+from app.core.config import settings
+from app.core.errors import (
+    InvalidImageError,
+    FileTooLargeError,
+    UnsupportedMediaTypeError,
+    UnauthorizedError,
+)
+from app.utils.io import load_image
+from app.services.segmenter import get_segmenter
+from app.services.mask_postprocess import get_postprocessor
+from app.services.layer_builder import get_layer_builder
+from app.services.psd_writer import get_psd_writer
+from app.services.preview_generator import get_preview_generator
+from app.services.metadata_builder import get_metadata_builder
+from app.storage.local_storage import get_local_storage
+from app.schemas.convert import ConvertResponse
 
 router = APIRouter(tags=["convert"])
 
 
-@router.post("/convert")
+@router.post("/convert", response_model=ConvertResponse)
 async def convert(
     request: Request,
     file: UploadFile = File(...),
@@ -30,26 +51,144 @@ async def convert(
     
     Returns:
         JSON response with PSD URL and optional previews/metadata
+        
+    Raises:
+        UnauthorizedError: If signature/session is invalid
+        InvalidImageError: If image is corrupted or unsupported
+        FileTooLargeError: If file exceeds size limit
+        UnsupportedMediaTypeError: If file type is not supported
     """
     # Verify session is attached by middleware
     if not hasattr(request.state, "session"):
-        return {
-            "error": {
-                "code": "UNAUTHORIZED",
-                "message": "Missing or invalid signature",
-                "request_id": request.state.request_id,
-            }
-        }
+        raise UnauthorizedError("Missing or invalid signature")
     
-    # TODO: Implement actual conversion logic
-    # For now, return a placeholder response
-    return {
-        "job_id": "placeholder-job-id",
-        "status": "succeeded",
-        "psd": {
-            "url": "/files/placeholder/output.psd",
-            "size_bytes": 0,
-            "layer_count": 0,
-        },
-        "message": "Conversion endpoint is not yet implemented",
-    }
+    # Generate job ID
+    job_id = str(uuid.uuid4())
+    request_id = getattr(request.state, "request_id", job_id)
+    
+    # Start timing
+    start_time = time.time()
+    timings = {}
+    
+    storage = get_local_storage()
+    
+    try:
+        # Validate mode
+        if mode not in ("auto", "prompt"):
+            raise InvalidImageError(f"Invalid mode '{mode}'. Must be 'auto' or 'prompt'")
+        
+        if mode == "prompt" and not prompt:
+            raise InvalidImageError("prompt field is required when mode='prompt'")
+        
+        # Read file bytes
+        file_bytes = await file.read()
+        
+        # Load and validate image
+        load_start = time.time()
+        image_array, (orig_width, orig_height), image_format = load_image(file_bytes)
+        timings["load"] = time.time() - load_start
+        
+        # Segmentation
+        seg_start = time.time()
+        segmenter = get_segmenter()
+        
+        if mode == "auto":
+            masks = segmenter.segment_auto(image_array)
+        else:
+            masks = segmenter.segment_with_prompt(image_array, prompt)
+        
+        timings["segmentation"] = time.time() - seg_start
+        
+        # Post-process masks
+        postproc_start = time.time()
+        postprocessor = get_postprocessor()
+        masks = postprocessor.process(masks, image_array.shape)
+        timings["postprocess"] = time.time() - postproc_start
+        
+        # Build layers
+        layer_builder = get_layer_builder()
+        
+        # Background layer
+        bg_rgba, bg_name, bg_bbox = layer_builder.build_background(image_array, masks)
+        layers = [(bg_rgba, bg_name, bg_bbox)]
+        
+        # Object layers
+        for rgba, layer_name, bbox in layer_builder.build_layers(image_array, masks):
+            layers.append((rgba, layer_name, bbox))
+        
+        # Write PSD
+        psd_start = time.time()
+        psd_writer = get_psd_writer()
+        psd_bytes = psd_writer.write_psd(
+            layers,
+            orig_width,
+            orig_height,
+        )
+        timings["psd_write"] = time.time() - psd_start
+        
+        # Save PSD to storage
+        psd_path = storage.save_psd(job_id, psd_bytes)
+        psd_url = storage.get_file_url(psd_path)
+        
+        # Generate previews if requested
+        preview_urls = None
+        if return_previews:
+            preview_gen = get_preview_generator()
+            previews = preview_gen.generate_all_previews(layers)
+            
+            preview_urls = []
+            for layer_name, png_bytes in previews:
+                preview_path = storage.save_preview(job_id, layer_name, png_bytes)
+                preview_url = storage.get_file_url(preview_path)
+                preview_urls.append({
+                    "layer": layer_name,
+                    "url": preview_url,
+                })
+        
+        # Generate metadata if requested
+        metadata_dict = None
+        if return_metadata:
+            metadata_builder = get_metadata_builder()
+            metadata_dict = metadata_builder.build_metadata(
+                job_id=job_id,
+                image_filename=file.filename or "image",
+                image_width=orig_width,
+                image_height=orig_height,
+                image_format=image_format,
+                layers=layers,
+                timings=timings,
+            )
+            
+            # Save metadata to storage
+            metadata_path = storage.save_metadata(job_id, metadata_dict)
+            metadata_url = storage.get_file_url(metadata_path)
+            metadata_dict["url"] = metadata_url
+        
+        # Build response
+        response = ConvertResponse(
+            job_id=job_id,
+            status="succeeded",
+            psd={
+                "url": psd_url,
+                "size_bytes": len(psd_bytes),
+                "layer_count": len(layers),
+            },
+            timing=timings,
+            previews=preview_urls,
+            metadata=metadata_dict,
+            request_id=request_id,
+        )
+        
+        timings["total"] = time.time() - start_time
+        response.timing = timings
+        
+        return response
+        
+    except (InvalidImageError, FileTooLargeError, UnsupportedMediaTypeError) as e:
+        # Clean up on error
+        storage.cleanup_job(job_id)
+        raise
+    except Exception as e:
+        # Clean up on error
+        storage.cleanup_job(job_id)
+        raise InvalidImageError(f"Conversion failed: {str(e)}")
