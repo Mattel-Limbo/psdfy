@@ -22,7 +22,7 @@ async def home(request: Request):
     template_path = get_template_path("app.html")
     
     try:
-        with open(template_path, "r") as f:
+        with open(template_path, "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
         return f"<h1>App page not found at {template_path}</h1>"
@@ -34,7 +34,7 @@ async def login_page(request: Request):
     template_path = get_template_path("login.html")
     
     try:
-        with open(template_path, "r") as f:
+        with open(template_path, "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
         return f"<h1>Login page not found at {template_path}</h1>"
