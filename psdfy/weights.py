@@ -117,6 +117,13 @@ class WeightsDownloader:
         return hook
 
 
-def get_weights_downloader() -> WeightsDownloader:
-    """Get weights downloader instance."""
-    return WeightsDownloader()
+def get_weights_downloader(weights_dir: Optional[str] = None) -> WeightsDownloader:
+    """Get weights downloader instance.
+    
+    Args:
+        weights_dir: Optional directory to store weights
+        
+    Returns:
+        WeightsDownloader instance
+    """
+    return WeightsDownloader(weights_dir)

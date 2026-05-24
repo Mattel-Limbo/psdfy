@@ -3,6 +3,13 @@
 import typer
 from typing import Optional
 
+# Import command implementations
+from psdfy.commands.install import install_command
+from psdfy.commands.start import start_command
+from psdfy.commands.stop import stop_command
+from psdfy.commands.fix import fix_command
+from psdfy.commands.update import update_command
+
 app = typer.Typer(
     name="psdfy",
     help="Image to PSD converter - install, start, stop, and manage the service",
@@ -68,17 +75,15 @@ def install(
     Creates ~/.psdfy/ directory, downloads SAM 2 weights,
     and optionally registers as a system service.
     """
-    typer.echo("Installing psdfy...")
-    typer.echo(f"  Host: {host}")
-    typer.echo(f"  API Port: {api_port}")
-    typer.echo(f"  UI Port: {ui_port}")
-    typer.echo(f"  Service: {'yes' if service else 'no'}")
-    typer.echo(f"  Download weights: {'no' if no_weights else 'yes'}")
-    
-    if dry_run:
-        typer.echo("(dry-run mode - no changes made)")
-    else:
-        typer.echo("TODO: Implement install command (Issue #15)")
+    install_command(
+        password=password,
+        host=host,
+        api_port=api_port,
+        ui_port=ui_port,
+        service=service,
+        no_weights=no_weights,
+        dry_run=dry_run,
+    )
 
 
 @app.command()
@@ -115,12 +120,13 @@ def start(
     Starts both API and UI servers. Checks that ports are free
     and model weights are present before starting.
     """
-    typer.echo("Starting psdfy service...")
-    
-    if dry_run:
-        typer.echo("(dry-run mode - no changes made)")
-    else:
-        typer.echo("TODO: Implement start command (Issue #16)")
+    start_command(
+        host=host,
+        api_port=api_port,
+        ui_port=ui_port,
+        foreground=foreground,
+        dry_run=dry_run,
+    )
 
 
 @app.command()
@@ -142,15 +148,10 @@ def stop(
     Gracefully shuts down both API and UI servers.
     Use --force to escalate to SIGKILL if needed.
     """
-    typer.echo("Stopping psdfy service...")
-    
-    if force:
-        typer.echo("  (force mode enabled)")
-    
-    if dry_run:
-        typer.echo("(dry-run mode - no changes made)")
-    else:
-        typer.echo("TODO: Implement stop command (Issue #17)")
+    stop_command(
+        force=force,
+        dry_run=dry_run,
+    )
 
 
 @app.command()
@@ -172,12 +173,10 @@ def update(
     Checks PyPI for new versions, upgrades via pipx,
     runs config migrations, and restarts the service.
     """
-    typer.echo(f"Checking for updates (channel: {channel})...")
-    
-    if dry_run:
-        typer.echo("(dry-run mode - no changes made)")
-    else:
-        typer.echo("TODO: Implement update command (Issue #30)")
+    update_command(
+        channel=channel,
+        dry_run=dry_run,
+    )
 
 
 @app.command()
@@ -214,12 +213,13 @@ def fix(
     Checks Python version, config, weights, ports, GPU,
     and service status. Offers interactive fixes.
     """
-    typer.echo("Running psdfy diagnostics...")
-    
-    if dry_run:
-        typer.echo("(dry-run mode - checking only)")
-    else:
-        typer.echo("TODO: Implement fix command (Issue #18)")
+    fix_command(
+        reset_password=reset_password,
+        reset_client_secret=reset_client_secret,
+        redownload_weights=redownload_weights,
+        reset_config=reset_config,
+        dry_run=dry_run,
+    )
 
 
 if __name__ == "__main__":
