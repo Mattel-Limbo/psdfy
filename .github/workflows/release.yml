@@ -26,6 +26,11 @@ jobs:
       with:
         python-version: '3.11'
     
+    - name: Checkout master branch
+      run: |
+        git fetch origin master
+        git checkout master
+    
     - name: Update version in pyproject.toml
       run: |
         python -c "
@@ -37,13 +42,24 @@ jobs:
             f.write(content)
         "
     
-    - name: Commit version update
+    - name: Update version in psdfy/__init__.py
+      run: |
+        python -c "
+        import re
+        with open('psdfy/__init__.py', 'r') as f:
+            content = f.read()
+        content = re.sub(r'__version__ = \"[^\"]+\"', f'__version__ = \"${{ steps.version.outputs.version }}\"', content)
+        with open('psdfy/__init__.py', 'w') as f:
+            f.write(content)
+        "
+    
+    - name: Commit and push version update to master
       run: |
         git config --local user.email "action@github.com"
         git config --local user.name "GitHub Action"
-        git add pyproject.toml
+        git add pyproject.toml psdfy/__init__.py
         git commit -m "chore: bump version to ${{ steps.version.outputs.version }}" || true
-        git push || true
+        git push origin master
     
     - name: Create Release
       uses: softprops/action-gh-release@v1
