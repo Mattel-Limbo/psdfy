@@ -113,7 +113,10 @@ class WeightsDownloader:
             if callback and total_size > 0:
                 downloaded = block_num * block_size
                 percent = min(100, int(100 * downloaded / total_size))
-                callback(f"Progress: {percent}%")
+                # Use \r to overwrite the same line instead of creating new lines
+                import sys
+                sys.stdout.write(f"\rProgress: {percent}%")
+                sys.stdout.flush()
         return hook
 
 
