@@ -42,6 +42,29 @@ Then:
 3. Click "Convert to PSD"
 4. Download your layered PSD file
 
+### Option 1b: Install Without Weights (Lightweight)
+
+If you want to set up psdfy without downloading the large model weights (5GB+), use:
+
+```bash
+# Install psdfy
+pip install psdfy
+
+# Run installation wizard without downloading weights
+psdfy install --skip-weights
+
+# Later, download weights when ready
+psdfy install --download-weights-only
+
+# Start the service
+psdfy start
+```
+
+This is useful for:
+- Setting up on servers with limited bandwidth
+- Testing the UI before committing to full installation
+- Downloading weights on a separate machine
+
 ### Option 2: Docker (Recommended)
 
 ```bash
