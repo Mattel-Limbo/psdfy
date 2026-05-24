@@ -9,6 +9,8 @@ from typing import Optional, List
 import sys
 import os
 
+from psdfy.config import get_config_manager
+
 
 def is_port_free(host: str, port: int) -> bool:
     """Check if port is free."""
