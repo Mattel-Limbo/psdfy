@@ -9,6 +9,7 @@ from psdfy.commands.start import start_command
 from psdfy.commands.stop import stop_command
 from psdfy.commands.fix import fix_command
 from psdfy.commands.update import update_command
+from psdfy.commands.uninstall import uninstall_command
 
 app = typer.Typer(
     name="psdfy",
@@ -218,6 +219,31 @@ def fix(
         reset_client_secret=reset_client_secret,
         redownload_weights=redownload_weights,
         reset_config=reset_config,
+        dry_run=dry_run,
+    )
+
+
+@app.command()
+def uninstall(
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Skip confirmation prompt"
+    ),
+    dry_run: bool = typer.Option(
+        False,
+        "--dry-run",
+        help="Show what would be removed without actually removing"
+    ),
+):
+    """
+    Uninstall psdfy and remove all related files.
+    
+    Removes configuration, weights, logs, and uninstalls the pip package.
+    Use --force to skip confirmation, --dry-run to preview changes.
+    """
+    uninstall_command(
+        force=force,
         dry_run=dry_run,
     )
 
