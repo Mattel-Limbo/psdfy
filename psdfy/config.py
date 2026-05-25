@@ -40,6 +40,7 @@ class ConfigManager:
         host: str = "localhost",
         api_port: int = 3456,
         ui_port: int = 3457,
+        enable_sam2: bool = True,
     ) -> str:
         """
         Create default config.toml content.
@@ -49,6 +50,7 @@ class ConfigManager:
             host: API host
             api_port: API port
             ui_port: UI port
+            enable_sam2: Enable SAM2 model
             
         Returns:
             Config file content
@@ -84,6 +86,7 @@ signature_ttl_seconds = 86400
 
 [models]
 sam2_weights_path = "{self.weights_dir}/sam2_hiera_large.pt"
+enable_sam2 = {"true" if enable_sam2 else "false"}
 enable_grounding_dino = false
 dino_weights_path = "{self.weights_dir}/groundingdino_swinb_cogvlm.pth"
 

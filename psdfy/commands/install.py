@@ -52,6 +52,7 @@ def install_command(
         host=host,
         api_port=api_port,
         ui_port=ui_port,
+        enable_sam2=not no_weights,
     )
     
     if not dry_run:

@@ -51,7 +51,7 @@ If you want to set up psdfy without downloading the large model weights (5GB+), 
 pip install psdfy
 
 # Run installation wizard without downloading weights
-psdfy install --skip-weights
+psdfy install --no-weights
 
 # Later, download weights when ready
 psdfy install --download-weights-only
@@ -64,6 +64,7 @@ This is useful for:
 - Setting up on servers with limited bandwidth
 - Testing the UI before committing to full installation
 - Downloading weights on a separate machine
+- Running without SAM2 segmentation (basic functionality only)
 
 ### Option 2: Docker (Recommended)
 

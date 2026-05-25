@@ -163,13 +163,18 @@ def start_command(
     typer.echo("\n✓ Pre-flight checks:")
     typer.echo(f"   Ports free: {host}:{api_port}, {host}:{ui_port}")
     
-    # Check weights
+    # Check weights (optional based on config)
     weights_dir = config_manager.weights_dir
     sam2_weights = weights_dir / "sam2_hiera_large.pt"
-    if not sam2_weights.exists():
-        typer.echo("   ⚠️  SAM 2 weights not found. Run 'psdfy install' first.", err=True)
-        return
-    typer.echo(f"   Weights: OK")
+    enable_sam2 = config.get("models", {}).get("enable_sam2", True)
+    
+    if enable_sam2:
+        if not sam2_weights.exists():
+            typer.echo("   ⚠️  SAM 2 weights not found. Run 'psdfy install' first.", err=True)
+            return
+        typer.echo(f"   Weights: OK (SAM 2 enabled)")
+    else:
+        typer.echo(f"   Weights: Skipped (SAM 2 disabled)")
     
     if dry_run:
         typer.echo("\n(dry-run mode - no changes made)")
