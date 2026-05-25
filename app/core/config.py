@@ -19,7 +19,7 @@ class Settings(BaseSettings):
     MIN_MASK_AREA_RATIO: float = 0.005
     
     # --- Auth: Client Signature ---
-    SIGNATURE_SECRET_PEPPER: str = ""  # extra server-side pepper (optional)
+    SIGNATURE_SECRET_PEPPER: str = ""  # extra server-side pepper (optional|not mandatory)
     SIGNATURE_SALT_LENGTH: int = 10
     SIGNATURE_TTL_SECONDS: int = 86400  # 24 hours
     SIGNATURE_TIMESTAMP_SKEW: int = 300  # 5 minutes
