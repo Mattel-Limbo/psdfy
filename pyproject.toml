@@ -10,7 +10,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
 authors = [
-    {name = "Wirandra Alaya", email = "wirandra@example.com"}
+    {name = "Wirandra Alaya", email = "daycodestudioproject@gmail.com"}
 ]
 keywords = ["psd", "layer", "converter"]
 classifiers = [
