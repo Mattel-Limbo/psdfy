@@ -5,9 +5,20 @@ import sys
 import subprocess
 from pathlib import Path
 from typing import Optional
+import time
 
 from psdfy.config import get_config_manager
 from psdfy.weights import get_weights_downloader
+from psdfy.progress_utils import (
+    ProgressBar,
+    DownloadProgress,
+    print_status,
+    print_success,
+    print_error,
+    print_warning,
+    print_loading,
+    create_progress_task,
+)
 
 
 def install_command(
@@ -32,7 +43,7 @@ def install_command(
         dry_run: Show what would be done
     """
     # Step 0: Upgrade psdfy package from PyPI
-    typer.echo("[*] Checking for latest psdfy version...")
+    print_status("🔍", "Checking for latest psdfy version...")
     if not dry_run:
         try:
             subprocess.run(
@@ -41,24 +52,24 @@ def install_command(
                 timeout=60,
                 check=False
             )
-            typer.echo("   âœ“ Package updated to latest version")
+            print_success("Package updated to latest version")
         except Exception as e:
-            typer.echo(f"   âš ï¸  Could not upgrade package: {e}", err=True)
+            print_warning(f"Could not upgrade package: {e}")
     
     config_manager = get_config_manager()
     
-    typer.echo("ðŸš€ Installing psdfy...")
+    print_loading("Installing psdfy...")
     
     # Step 1: Create directories
-    typer.echo("\nðŸ“ Creating directories...")
+    print_status("📁", "Creating directories...")
     if not dry_run:
         config_manager.ensure_directories()
-    typer.echo(f"   Config: {config_manager.config_dir}")
-    typer.echo(f"   Weights: {config_manager.weights_dir}")
-    typer.echo(f"   Outputs: {config_manager.outputs_dir}")
+    print_status("  ", f"Config: {config_manager.config_dir}")
+    print_status("  ", f"Weights: {config_manager.weights_dir}")
+    print_status("  ", f"Outputs: {config_manager.outputs_dir}")
     
     # Step 2: Create config
-    typer.echo("\nâš™ï¸  Creating configuration...")
+    print_status("⚙️", "Creating configuration...")
     if password is None:
         password = "123456"
     
@@ -73,35 +84,49 @@ def install_command(
     if not dry_run:
         config_manager.save_config(config_content)
     
-    typer.echo(f"   Host: {host}")
-    typer.echo(f"   API Port: {api_port}")
-    typer.echo(f"   UI Port: {ui_port}")
-    typer.echo(f"   Password: {'*' * len(password)}")
+    print_status("  ", f"Host: {host}")
+    print_status("  ", f"API Port: {api_port}")
+    print_status("  ", f"UI Port: {ui_port}")
+    print_status("  ", f"Password: {'*' * len(password)}")
     
     # Step 3: Download weights
     if not no_weights:
-        typer.echo("\nðŸ“¥ Downloading model weights...")
+        print_status("📥", "Downloading model weights...")
         downloader = get_weights_downloader(str(config_manager.weights_dir))
         
         try:
             if not dry_run:
-                downloader.download_model("sam2", progress_callback=typer.echo)
-            typer.echo("   âœ“ SAM 2 weights ready")
+                with DownloadProgress("📥") as progress:
+                    task_id = create_progress_task(
+                        progress, "SAM 2 model weights", total=100, emoji=""
+                    )
+                    
+                    def progress_callback(current: int, total: int):
+                        """Update progress bar during download."""
+                        if total > 0:
+                            percentage = int((current / total) * 100)
+                            progress.update(task_id, completed=percentage)
+                    
+                    downloader.download_model("sam2", progress_callback=progress_callback)
+                
+                print_success("SAM 2 weights ready")
+            else:
+                print_status("  ", "SAM 2 weights (dry-run)")
         except Exception as e:
-            typer.echo(f"   âš ï¸  SAM 2 download failed: {e}", err=True)
+            print_error(f"SAM 2 download failed: {e}")
     
     # Step 4: Register service (if requested)
     if service:
-        typer.echo("\nðŸ”§ Registering system service...")
-        typer.echo("   TODO: Implement service registration")
+        print_status("🔧", "Registering system service...")
+        print_status("  ", "TODO: Implement service registration")
     
     # Summary
-    typer.echo("\nâœ… Installation complete!")
-    typer.echo(f"\nNext steps:")
-    typer.echo(f"  1. Start the service: psdfy start")
-    typer.echo(f"  2. Open browser: http://{host}:{ui_port}")
-    typer.echo(f"  3. Login with password: {password}")
+    print_success("Installation complete!")
+    print_status("📋", "\nNext steps:")
+    print_status("  ", "1. Start the service: psdfy start")
+    print_status("  ", f"2. Open browser: http://{host}:{ui_port}")
+    print_status("  ", f"3. Login with password: {password}")
     
     if dry_run:
-        typer.echo("\n(dry-run mode - no changes made)")
+        print_status("ℹ️", "(dry-run mode - no changes made)")
 

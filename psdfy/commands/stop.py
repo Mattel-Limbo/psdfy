@@ -11,6 +11,15 @@ import os
 import socket
 
 from psdfy.config import get_config_manager
+from psdfy.progress_utils import (
+    ProgressBar,
+    print_status,
+    print_success,
+    print_error,
+    print_warning,
+    print_loading,
+    create_progress_task,
+)
 
 
 def get_process_by_port(port: int) -> Optional[int]:
@@ -97,7 +106,7 @@ def stop_command(
     api_port = int(config.get("app", {}).get("api_port", 3456))
     ui_port = int(config.get("app", {}).get("ui_port", 3457))
     
-    typer.echo("ðŸ›‘ Stopping psdfy service...")
+    print_loading("Stopping psdfy service...")
     
     # Read PIDs from files
     api_pid_file = run_dir / "api.pid"
@@ -116,7 +125,7 @@ def stop_command(
             if verify_process_on_port(api_pid, api_port):
                 pids_to_stop.append(("API", api_pid, api_port, api_pid_file))
             else:
-                typer.echo(f"   âš ï¸  API PID file exists but process not on port {api_port}")
+                print_warning(f"API PID file exists but process not on port {api_port}")
                 api_pid = None
         except (ValueError, IOError):
             pass
@@ -125,7 +134,7 @@ def stop_command(
     if api_pid is None:
         found_pid = get_process_by_port(api_port)
         if found_pid:
-            typer.echo(f"   â„¹ï¸  Found API process on port {api_port} (PID {found_pid})")
+            print_status("ℹ️", f"Found API process on port {api_port} (PID {found_pid})")
             pids_to_stop.append(("API", found_pid, api_port, api_pid_file))
     
     # Try to get UI PID
@@ -139,7 +148,7 @@ def stop_command(
             if verify_process_on_port(ui_pid, ui_port):
                 pids_to_stop.append(("UI", ui_pid, ui_port, ui_pid_file))
             else:
-                typer.echo(f"   âš ï¸  UI PID file exists but process not on port {ui_port}")
+                print_warning(f"UI PID file exists but process not on port {ui_port}")
                 ui_pid = None
         except (ValueError, IOError):
             pass
@@ -148,73 +157,81 @@ def stop_command(
     if ui_pid is None:
         found_pid = get_process_by_port(ui_port)
         if found_pid:
-            typer.echo(f"   â„¹ï¸  Found UI process on port {ui_port} (PID {found_pid})")
+            print_status("ℹ️", f"Found UI process on port {ui_port} (PID {found_pid})")
             pids_to_stop.append(("UI", found_pid, ui_port, ui_pid_file))
     
     if not pids_to_stop:
-        typer.echo("â„¹ï¸  No running services found on ports 3456 or 3457")
+        print_status("ℹ️", "No running services found on ports 3456 or 3457")
         return
     
     if dry_run:
-        typer.echo("(dry-run mode - would stop:)")
+        print_status("ℹ️", "(dry-run mode - would stop:)")
         for name, pid, port, _ in pids_to_stop:
-            typer.echo(f"   {name} (PID {pid}) on port {port}")
+            print_status("  ", f"{name} (PID {pid}) on port {port}")
         return
     
-    # Stop services
-    for name, pid, port, pid_file in pids_to_stop:
-        typer.echo(f"\nðŸ“ Stopping {name} (PID {pid}) on port {port}...")
-        
-        try:
-            # Try graceful shutdown first
-            if sys.platform == "win32":
-                subprocess.run(
-                    ["taskkill", "/PID", str(pid)],
-                    capture_output=True,
-                    timeout=5,
-                    check=False
-                )
-            else:
-                os.kill(pid, signal.SIGTERM)
+    # Stop services with progress
+    with ProgressBar("🛑") as progress:
+        for idx, (name, pid, port, pid_file) in enumerate(pids_to_stop):
+            task_id = create_progress_task(
+                progress, f"Stopping {name} (PID {pid})", total=10, emoji=""
+            )
             
-            # Wait for graceful shutdown (up to 5 seconds)
-            for i in range(10):
-                if not is_process_running(pid):
-                    typer.echo(f"   âœ“ Stopped gracefully")
-                    break
-                time.sleep(0.5)
-            else:
-                # Process still running after graceful attempt
-                typer.echo(f"   âš ï¸  Graceful shutdown timeout, force killing...")
+            print_status("🔍", f"Stopping {name} (PID {pid}) on port {port}...")
+            
+            try:
+                # Try graceful shutdown first
+                if sys.platform == "win32":
+                    subprocess.run(
+                        ["taskkill", "/PID", str(pid)],
+                        capture_output=True,
+                        timeout=5,
+                        check=False
+                    )
+                else:
+                    os.kill(pid, signal.SIGTERM)
                 
-                try:
-                    if sys.platform == "win32":
-                        subprocess.run(
-                            ["taskkill", "/PID", str(pid), "/F"],
-                            capture_output=True,
-                            timeout=5,
-                            check=False
-                        )
-                    else:
-                        os.kill(pid, signal.SIGKILL)
-                    
-                    # Verify it's dead
-                    time.sleep(0.5)
+                # Wait for graceful shutdown (up to 5 seconds)
+                for i in range(10):
                     if not is_process_running(pid):
-                        typer.echo(f"   âœ“ Force killed")
-                    else:
-                        typer.echo(f"   âœ— Could not terminate process", err=True)
-                except Exception as e:
-                    typer.echo(f"   âœ— Force kill failed: {e}", err=True)
-        
-        except Exception as e:
-            typer.echo(f"   âœ— Error: {e}", err=True)
-        
-        # Remove PID file
-        try:
-            pid_file.unlink()
-        except OSError:
-            pass
+                        print_success(f"{name} stopped gracefully")
+                        progress.update(task_id, completed=10)
+                        break
+                    progress.update(task_id, completed=i + 1)
+                    time.sleep(0.5)
+                else:
+                    # Process still running after graceful attempt
+                    print_warning(f"Graceful shutdown timeout, force killing {name}...")
+                    
+                    try:
+                        if sys.platform == "win32":
+                            subprocess.run(
+                                ["taskkill", "/PID", str(pid), "/F"],
+                                capture_output=True,
+                                timeout=5,
+                                check=False
+                            )
+                        else:
+                            os.kill(pid, signal.SIGKILL)
+                        
+                        # Verify it's dead
+                        time.sleep(0.5)
+                        if not is_process_running(pid):
+                            print_success(f"{name} force killed")
+                            progress.update(task_id, completed=10)
+                        else:
+                            print_error(f"Could not terminate {name} process")
+                    except Exception as e:
+                        print_error(f"Force kill failed: {e}")
+            
+            except Exception as e:
+                print_error(f"Error stopping {name}: {e}")
+            
+            # Remove PID file
+            try:
+                pid_file.unlink()
+            except OSError:
+                pass
     
-    typer.echo("\nâœ… Services stopped!")
+    print_success("Services stopped!")
 

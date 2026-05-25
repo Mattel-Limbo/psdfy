@@ -14,6 +14,7 @@ from app.core.errors import (
     UnsupportedMediaTypeError,
     UnauthorizedError,
 )
+from app.core.progress_tracker import AsyncProgressTracker
 from app.utils.io import load_image
 from app.services.segmenter import get_segmenter
 from app.services.mask_postprocess import get_postprocessor
@@ -66,6 +67,9 @@ async def convert(
     job_id = str(uuid.uuid4())
     request_id = getattr(request.state, "request_id", job_id)
     
+    # Initialize progress tracker
+    tracker = AsyncProgressTracker()
+    
     # Start timing
     start_time = time.time()
     timings = {}
@@ -80,15 +84,16 @@ async def convert(
         if mode == "prompt" and not prompt:
             raise InvalidImageError("prompt field is required when mode='prompt'")
         
-        # Read file bytes
-        file_bytes = await file.read()
-        
         # Load and validate image
+        tracker.start_stage("load", "📁 Loading image...")
         load_start = time.time()
+        file_bytes = await file.read()
         image_array, (orig_width, orig_height), image_format = load_image(file_bytes)
         timings["load"] = time.time() - load_start
+        tracker.complete_stage("load", f"✅ Image loaded ({orig_width}x{orig_height})")
         
         # Segmentation
+        tracker.start_stage("segmentation", "🔍 Segmenting image...")
         seg_start = time.time()
         segmenter = get_segmenter()
         
@@ -98,14 +103,18 @@ async def convert(
             masks = segmenter.segment_with_prompt(image_array, prompt)
         
         timings["segmentation"] = time.time() - seg_start
+        tracker.complete_stage("segmentation", f"✅ Segmentation complete ({len(masks)} masks)")
         
         # Post-process masks
+        tracker.start_stage("postprocess", "🎨 Post-processing masks...")
         postproc_start = time.time()
         postprocessor = get_postprocessor()
         masks = postprocessor.process(masks, image_array.shape)
         timings["postprocess"] = time.time() - postproc_start
+        tracker.complete_stage("postprocess", "✅ Post-processing complete")
         
         # Build layers
+        tracker.start_stage("layer_build", "🏗️ Building layers...")
         layer_builder = get_layer_builder()
         
         # Background layer
@@ -116,7 +125,10 @@ async def convert(
         for rgba, layer_name, bbox in layer_builder.build_layers(image_array, masks):
             layers.append((rgba, layer_name, bbox))
         
+        tracker.complete_stage("layer_build", f"✅ Built {len(layers)} layers")
+        
         # Write PSD
+        tracker.start_stage("psd_write", "💾 Writing PSD file...")
         psd_start = time.time()
         psd_writer = get_psd_writer()
         psd_bytes = psd_writer.write_psd(
@@ -125,6 +137,7 @@ async def convert(
             orig_height,
         )
         timings["psd_write"] = time.time() - psd_start
+        tracker.complete_stage("psd_write", f"✅ PSD written ({len(psd_bytes) / 1024 / 1024:.1f}MB)")
         
         # Save PSD to storage
         psd_path = storage.save_psd(job_id, psd_bytes)
@@ -133,21 +146,27 @@ async def convert(
         # Generate previews if requested
         preview_urls = None
         if return_previews:
+            tracker.start_stage("previews", "🖼️ Generating previews...")
             preview_gen = get_preview_generator()
             previews = preview_gen.generate_all_previews(layers)
             
             preview_urls = []
-            for layer_name, png_bytes in previews:
+            for idx, (layer_name, png_bytes) in enumerate(previews):
                 preview_path = storage.save_preview(job_id, layer_name, png_bytes)
                 preview_url = storage.get_file_url(preview_path)
                 preview_urls.append({
                     "layer": layer_name,
                     "url": preview_url,
                 })
+                progress = ((idx + 1) / len(previews)) * 100
+                tracker.update_stage("previews", progress, f"Generated {idx + 1}/{len(previews)} previews")
+            
+            tracker.complete_stage("previews", f"✅ Generated {len(preview_urls)} previews")
         
         # Generate metadata if requested
         metadata_dict = None
         if return_metadata:
+            tracker.start_stage("metadata", "📋 Generating metadata...")
             metadata_builder = get_metadata_builder()
             metadata_dict = metadata_builder.build_metadata(
                 job_id=job_id,
@@ -163,6 +182,7 @@ async def convert(
             metadata_path = storage.save_metadata(job_id, metadata_dict)
             metadata_url = storage.get_file_url(metadata_path)
             metadata_dict["url"] = metadata_url
+            tracker.complete_stage("metadata", "✅ Metadata generated")
         
         # Build response
         response = ConvertResponse(
@@ -187,8 +207,10 @@ async def convert(
     except (InvalidImageError, FileTooLargeError, UnsupportedMediaTypeError) as e:
         # Clean up on error
         storage.cleanup_job(job_id)
+        tracker.fail_stage("convert", str(e))
         raise
     except Exception as e:
         # Clean up on error
         storage.cleanup_job(job_id)
+        tracker.fail_stage("convert", str(e))
         raise InvalidImageError(f"Conversion failed: {str(e)}")

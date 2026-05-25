@@ -8,6 +8,15 @@ from typing import Optional
 import subprocess
 
 from psdfy.config import get_config_manager
+from psdfy.progress_utils import (
+    ProgressBar,
+    print_status,
+    print_success,
+    print_error,
+    print_warning,
+    print_loading,
+    create_progress_task,
+)
 
 
 def fix_command(
@@ -29,39 +38,40 @@ def fix_command(
     """
     config_manager = get_config_manager()
     
-    typer.echo("ðŸ” Running psdfy diagnostics...\n")
+    print_loading("Running psdfy diagnostics...")
+    print_status("", "")
     
     issues = []
     
     # Check 1: Python version
-    typer.echo("1ï¸âƒ£  Python version:")
+    print_status("1️⃣", "Python version:")
     python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     if sys.version_info >= (3, 11):
-        typer.echo(f"   âœ“ Python {python_version}")
+        print_success(f"Python {python_version}")
     else:
-        typer.echo(f"   âœ— Python {python_version} (requires 3.11+)")
+        print_error(f"Python {python_version} (requires 3.11+)")
         issues.append("python_version")
     
     # Check 2: Config file
-    typer.echo("\n2ï¸âƒ£  Configuration:")
+    print_status("2️⃣", "Configuration:")
     if config_manager.config_file.exists():
-        typer.echo(f"   âœ“ Config found: {config_manager.config_file}")
+        print_success(f"Config found: {config_manager.config_file}")
     else:
-        typer.echo(f"   âœ— Config not found: {config_manager.config_file}")
+        print_error(f"Config not found: {config_manager.config_file}")
         issues.append("config_missing")
     
     # Check 3: Weights
-    typer.echo("\n3ï¸âƒ£  Model weights:")
+    print_status("3️⃣", "Model weights:")
     sam2_weights = config_manager.weights_dir / "sam2_hiera_large.pt"
     if sam2_weights.exists():
         size_mb = sam2_weights.stat().st_size / 1024 / 1024
-        typer.echo(f"   âœ“ SAM 2 weights: {size_mb:.1f}MB")
+        print_success(f"SAM 2 weights: {size_mb:.1f}MB")
     else:
-        typer.echo(f"   âœ— SAM 2 weights not found")
+        print_error("SAM 2 weights not found")
         issues.append("weights_missing")
     
     # Check 4: Ports
-    typer.echo("\n4ï¸âƒ£  Ports:")
+    print_status("4️⃣", "Ports:")
     config = config_manager.load_config()
     api_port = int(config.get("app", {}).get("api_port", 3456))
     ui_port = int(config.get("app", {}).get("ui_port", 3457))
@@ -78,84 +88,100 @@ def fix_command(
             return False
     
     if is_port_free(api_port):
-        typer.echo(f"   âœ“ API port {api_port} is free")
+        print_success(f"API port {api_port} is free")
     else:
-        typer.echo(f"   âš ï¸  API port {api_port} is in use")
+        print_warning(f"API port {api_port} is in use")
     
     if is_port_free(ui_port):
-        typer.echo(f"   âœ“ UI port {ui_port} is free")
+        print_success(f"UI port {ui_port} is free")
     else:
-        typer.echo(f"   âš ï¸  UI port {ui_port} is in use")
+        print_warning(f"UI port {ui_port} is in use")
     
     # Check 5: GPU
-    typer.echo("\n5ï¸âƒ£  GPU/Device:")
+    print_status("5️⃣", "GPU/Device:")
     try:
         import torch
         if torch.cuda.is_available():
-            typer.echo(f"   âœ“ CUDA available: {torch.cuda.get_device_name(0)}")
+            print_success(f"CUDA available: {torch.cuda.get_device_name(0)}")
         else:
-            typer.echo(f"   â„¹ï¸  CUDA not available (CPU mode)")
+            print_status("ℹ️", "CUDA not available (CPU mode)")
     except ImportError:
-        typer.echo(f"   â„¹ï¸  PyTorch not installed (CPU mode)")
+        print_status("ℹ️", "PyTorch not installed (CPU mode)")
     
     # Check 6: Service status
-    typer.echo("\n6ï¸âƒ£  Service status:")
+    print_status("6️⃣", "Service status:")
     run_dir = config_manager.run_dir
     api_pid_file = run_dir / "api.pid"
     ui_pid_file = run_dir / "ui.pid"
     
     if api_pid_file.exists():
-        typer.echo(f"   â„¹ï¸  API service PID file exists")
+        print_status("ℹ️", "API service PID file exists")
     else:
-        typer.echo(f"   â„¹ï¸  API service not running")
+        print_status("ℹ️", "API service not running")
     
     if ui_pid_file.exists():
-        typer.echo(f"   â„¹ï¸  UI service PID file exists")
+        print_status("ℹ️", "UI service PID file exists")
     else:
-        typer.echo(f"   â„¹ï¸  UI service not running")
+        print_status("ℹ️", "UI service not running")
     
     # Summary
-    typer.echo("\n" + "=" * 50)
+    print_status("", "=" * 50)
     
     if not issues:
-        typer.echo("âœ… All checks passed!")
+        print_success("All checks passed!")
     else:
-        typer.echo(f"âš ï¸  Found {len(issues)} issue(s)")
+        print_warning(f"Found {len(issues)} issue(s)")
         
         if dry_run:
-            typer.echo("\n(dry-run mode - no fixes applied)")
+            print_status("ℹ️", "(dry-run mode - no fixes applied)")
         else:
             # Apply fixes
-            typer.echo("\nðŸ”§ Applying fixes...\n")
+            print_loading("Applying fixes...")
+            print_status("", "")
             
-            if "config_missing" in issues and not dry_run:
-                typer.echo("   Creating default config...")
-                config_content = config_manager.create_default_config()
-                config_manager.save_config(config_content)
-                typer.echo("   âœ“ Config created")
+            with ProgressBar("🔧") as progress:
+                task_id = create_progress_task(
+                    progress, "Applying fixes", total=len(issues), emoji=""
+                )
+                
+                fix_count = 0
+                
+                if "config_missing" in issues and not dry_run:
+                    print_status("  ", "Creating default config...")
+                    config_content = config_manager.create_default_config()
+                    config_manager.save_config(config_content)
+                    print_success("Config created")
+                    fix_count += 1
+                    progress.update(task_id, completed=fix_count)
+                
+                if "weights_missing" in issues and redownload_weights and not dry_run:
+                    print_status("  ", "Downloading weights...")
+                    from psdfy.weights import get_weights_downloader
+                    downloader = get_weights_downloader(str(config_manager.weights_dir))
+                    try:
+                        downloader.download_model("sam2", progress_callback=lambda x, y: None)
+                        print_success("Weights downloaded")
+                        fix_count += 1
+                    except Exception as e:
+                        print_error(f"Download failed: {e}")
+                    progress.update(task_id, completed=fix_count)
+                
+                if reset_password and not dry_run:
+                    print_status("  ", "Resetting password...")
+                    config_content = config_manager.create_default_config()
+                    config_manager.save_config(config_content)
+                    print_success("Password reset to 123456")
+                    fix_count += 1
+                    progress.update(task_id, completed=fix_count)
+                
+                if reset_client_secret and not dry_run:
+                    print_status("  ", "Generating new client secret...")
+                    config = config_manager.load_config()
+                    import uuid
+                    config["auth"]["client_secret"] = str(uuid.uuid4())
+                    print_success("Client secret regenerated")
+                    fix_count += 1
+                    progress.update(task_id, completed=fix_count)
             
-            if "weights_missing" in issues and redownload_weights and not dry_run:
-                typer.echo("   Downloading weights...")
-                from psdfy.weights import get_weights_downloader
-                downloader = get_weights_downloader(str(config_manager.weights_dir))
-                try:
-                    downloader.download_model("sam2", progress_callback=typer.echo)
-                    typer.echo("   âœ“ Weights downloaded")
-                except Exception as e:
-                    typer.echo(f"   âœ— Download failed: {e}", err=True)
-            
-            if reset_password and not dry_run:
-                typer.echo("   Resetting password...")
-                config_content = config_manager.create_default_config()
-                config_manager.save_config(config_content)
-                typer.echo("   âœ“ Password reset to 123456")
-            
-            if reset_client_secret and not dry_run:
-                typer.echo("   Generating new client secret...")
-                config = config_manager.load_config()
-                import uuid
-                config["auth"]["client_secret"] = str(uuid.uuid4())
-                typer.echo("   âœ“ Client secret regenerated")
-            
-            typer.echo("\nâœ… Fixes applied!")
+            print_success("Fixes applied!")
 

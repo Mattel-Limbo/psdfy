@@ -10,6 +10,15 @@ import sys
 import os
 
 from psdfy.config import get_config_manager
+from psdfy.progress_utils import (
+    ProgressBar,
+    print_status,
+    print_success,
+    print_error,
+    print_warning,
+    print_loading,
+    create_progress_task,
+)
 
 
 def is_port_free(host: str, port: int) -> bool:
@@ -120,48 +129,48 @@ def start_command(
     if ui_port is None:
         ui_port = int(config.get("app", {}).get("ui_port", 3457))
     
-    typer.echo("ðŸš€ Starting psdfy service...")
+    print_loading("Starting psdfy service...")
     
     # Check if ports are already in use
     api_free = is_port_free(host, api_port)
     ui_free = is_port_free(host, ui_port)
     
     if not api_free or not ui_free:
-        typer.echo("\nâš ï¸  Ports already in use:")
+        print_warning("Ports already in use:")
         if not api_free:
-            typer.echo(f"   API port {api_port} is in use")
+            print_status("  ", f"API port {api_port} is in use")
         if not ui_free:
-            typer.echo(f"   UI port {ui_port} is in use")
+            print_status("  ", f"UI port {ui_port} is in use")
         
         # Try to kill existing processes on these ports
-        typer.echo("\nðŸ”„ Attempting to kill existing processes...")
+        print_status("🔄", "Attempting to kill existing processes...")
         
         killed_api = False
         killed_ui = False
         
         if not api_free:
             if kill_process_by_port(api_port):
-                typer.echo(f"   âœ“ Killed process on port {api_port}")
+                print_success(f"Killed process on port {api_port}")
                 killed_api = True
             else:
-                typer.echo(f"   âœ— Could not kill process on port {api_port}")
+                print_error(f"Could not kill process on port {api_port}")
         
         if not ui_free:
             if kill_process_by_port(ui_port):
-                typer.echo(f"   âœ“ Killed process on port {ui_port}")
+                print_success(f"Killed process on port {ui_port}")
                 killed_ui = True
             else:
-                typer.echo(f"   âœ— Could not kill process on port {ui_port}")
+                print_error(f"Could not kill process on port {ui_port}")
         
         # Check again if ports are free
         time.sleep(1)
         if not is_port_free(host, api_port) or not is_port_free(host, ui_port):
-            typer.echo("\nâœ— Could not free ports. Please manually stop the services.", err=True)
+            print_error("Could not free ports. Please manually stop the services.")
             return
     
     # Pre-flight checks
-    typer.echo("\nâœ“ Pre-flight checks:")
-    typer.echo(f"   Ports free: {host}:{api_port}, {host}:{ui_port}")
+    print_status("✅", "Pre-flight checks:")
+    print_status("  ", f"Ports free: {host}:{api_port}, {host}:{ui_port}")
     
     # Check weights (optional based on config)
     weights_dir = config_manager.weights_dir
@@ -170,18 +179,18 @@ def start_command(
     
     if enable_sam2:
         if not sam2_weights.exists():
-            typer.echo("   âš ï¸  SAM 2 weights not found. Run 'psdfy install' first.", err=True)
+            print_error("SAM 2 weights not found. Run 'psdfy install' first.")
             return
-        typer.echo(f"   Weights: OK (SAM 2 enabled)")
+        print_status("  ", "Weights: OK (SAM 2 enabled)")
     else:
-        typer.echo(f"   Weights: Skipped (SAM 2 disabled)")
+        print_status("  ", "Weights: Skipped (SAM 2 disabled)")
     
     if dry_run:
-        typer.echo("\n(dry-run mode - no changes made)")
+        print_status("ℹ️", "(dry-run mode - no changes made)")
         return
     
     # Start servers
-    typer.echo("\nðŸ“¡ Starting servers...")
+    print_status("🔡", "Starting servers...")
     
     # Create run directory
     run_dir = config_manager.run_dir
@@ -198,7 +207,7 @@ def start_command(
     api_log = run_dir / "api.log"
     api_pid_file = run_dir / "api.pid"
     
-    typer.echo(f"   Starting API server on {host}:{api_port}...")
+    print_status("  ", f"Starting API server on {host}:{api_port}...")
     
     if foreground:
         # Run in foreground
@@ -214,7 +223,7 @@ def start_command(
                 env=env,
             )
         except KeyboardInterrupt:
-            typer.echo("\nShutdown requested")
+            print_status("🛑", "Shutdown requested")
     else:
         # Run in background
         with open(api_log, "w") as log_file:
@@ -239,7 +248,7 @@ def start_command(
         ui_log = run_dir / "ui.log"
         ui_pid_file = run_dir / "ui.pid"
         
-        typer.echo(f"   Starting UI server on {host}:{ui_port}...")
+        print_status("  ", f"Starting UI server on {host}:{ui_port}...")
         
         with open(ui_log, "w") as log_file:
             ui_process = subprocess.Popen(
@@ -259,31 +268,61 @@ def start_command(
         with open(ui_pid_file, "w") as f:
             f.write(str(ui_process.pid))
         
-        # Wait for health
-        typer.echo("\nâ³ Waiting for services to be ready...")
+        # Wait for health with progress bar
+        print_status("⏳", "Waiting for services to be ready...")
         
-        if wait_for_health(host, api_port):
-            typer.echo(f"   âœ“ API ready: http://{host}:{api_port}")
+        with ProgressBar("⏳") as progress:
+            api_task = create_progress_task(progress, "API server", total=30, emoji="")
+            ui_task = create_progress_task(progress, "UI server", total=30, emoji="")
+            
+            start_time = time.time()
+            api_ready = False
+            ui_ready = False
+            
+            while time.time() - start_time < 30:
+                elapsed = int(time.time() - start_time)
+                
+                if not api_ready:
+                    if wait_for_health(host, api_port, timeout=1):
+                        api_ready = True
+                        progress.update(api_task, completed=30)
+                    else:
+                        progress.update(api_task, completed=elapsed)
+                
+                if not ui_ready:
+                    if wait_for_health(host, ui_port, timeout=1):
+                        ui_ready = True
+                        progress.update(ui_task, completed=30)
+                    else:
+                        progress.update(ui_task, completed=elapsed)
+                
+                if api_ready and ui_ready:
+                    break
+                
+                time.sleep(0.5)
+        
+        if api_ready:
+            print_success(f"API ready: http://{host}:{api_port}")
         else:
-            typer.echo(f"   âœ— API failed to start", err=True)
+            print_error("API failed to start")
             # Show error log
             if api_log.exists():
-                typer.echo(f"\n   API Log ({api_log}):", err=True)
+                print_status("📋", f"API Log ({api_log}):")
                 with open(api_log) as f:
                     for line in f.readlines()[-10:]:
-                        typer.echo(f"   {line.rstrip()}", err=True)
+                        print_status("  ", line.rstrip())
         
-        if wait_for_health(host, ui_port):
-            typer.echo(f"   âœ“ UI ready: http://{host}:{ui_port}")
+        if ui_ready:
+            print_success(f"UI ready: http://{host}:{ui_port}")
         else:
-            typer.echo(f"   âœ— UI failed to start", err=True)
+            print_error("UI failed to start")
             # Show error log
             if ui_log.exists():
-                typer.echo(f"\n   UI Log ({ui_log}):", err=True)
+                print_status("📋", f"UI Log ({ui_log}):")
                 with open(ui_log) as f:
                     for line in f.readlines()[-10:]:
-                        typer.echo(f"   {line.rstrip()}", err=True)
+                        print_status("  ", line.rstrip())
         
-        typer.echo("\nâœ… Services started!")
-        typer.echo(f"\nOpen your browser: http://{host}:{ui_port}")
+        print_success("Services started!")
+        print_status("🌐", f"Open your browser: http://{host}:{ui_port}")
 
