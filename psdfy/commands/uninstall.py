@@ -1,6 +1,5 @@
 ﻿"""Uninstall command implementation."""
 
-import typer
 import subprocess
 import shutil
 import sys
@@ -8,6 +7,15 @@ from pathlib import Path
 from typing import Optional
 
 from psdfy.config import get_config_manager
+from psdfy.progress_utils import (
+    ProgressBar,
+    print_status,
+    print_success,
+    print_error,
+    print_warning,
+    print_loading,
+    create_progress_task,
+)
 
 
 def uninstall_command(
@@ -21,7 +29,7 @@ def uninstall_command(
         force: Skip confirmation prompt
         dry_run: Show what would be removed without actually removing
     """
-    typer.echo("ðŸ—‘ï¸  Uninstalling psdfy...")
+    print_loading("Uninstalling psdfy...")
     
     config_manager = get_config_manager()
     
@@ -44,24 +52,24 @@ def uninstall_command(
         items_to_remove.append(("Run directory (logs, PIDs)", run_dir))
     
     # Show what will be removed
-    typer.echo("\nðŸ“‹ Items to be removed:")
+    print_status("📋", "Items to be removed:")
     for name, path in items_to_remove:
-        typer.echo(f"   â€¢ {name}: {path}")
+        print_status("  •", f"{name}: {path}")
     
     if dry_run:
-        typer.echo("\n(dry-run mode - no changes made)")
+        print_status("ℹ️", "(dry-run mode - no changes made)")
         return
     
     # Ask for confirmation if not forced
     if not force:
-        typer.echo("\nâš ï¸  This will remove all psdfy configuration and data!")
-        confirm = typer.confirm("Are you sure you want to uninstall psdfy?")
-        if not confirm:
-            typer.echo("Uninstall cancelled.")
+        print_warning("This will remove all psdfy configuration and data!")
+        confirm = input("Are you sure you want to uninstall psdfy? (yes/no): ")
+        if confirm.lower() != "yes":
+            print_status("ℹ️", "Uninstall cancelled.")
             return
     
     # Stop running services first
-    typer.echo("\nðŸ›‘ Stopping services...")
+    print_loading("Stopping services...")
     try:
         result = subprocess.run(
             [sys.executable, "-m", "psdfy", "stop"],
@@ -69,27 +77,36 @@ def uninstall_command(
             timeout=10,
         )
         if result.returncode == 0:
-            typer.echo("   âœ“ Services stopped")
+            print_success("Services stopped")
         else:
-            typer.echo("   âš ï¸  Could not stop services (may not be running)")
+            print_warning("Could not stop services (may not be running)")
     except Exception as e:
-        typer.echo(f"   âš ï¸  Error stopping services: {e}")
+        print_warning(f"Error stopping services: {e}")
     
     # Remove directories
-    typer.echo("\nðŸ—‘ï¸  Removing files and directories...")
-    for name, path in items_to_remove:
-        try:
-            if path.is_dir():
-                shutil.rmtree(path)
-                typer.echo(f"   âœ“ Removed {name}")
-            elif path.is_file():
-                path.unlink()
-                typer.echo(f"   âœ“ Removed {name}")
-        except Exception as e:
-            typer.echo(f"   âœ— Error removing {name}: {e}", err=True)
+    print_loading("Removing files and directories...")
+    
+    with ProgressBar("🗑️") as progress:
+        task_id = create_progress_task(
+            progress, "Removing files", total=len(items_to_remove), emoji=""
+        )
+        
+        removed_count = 0
+        for name, path in items_to_remove:
+            try:
+                if path.is_dir():
+                    shutil.rmtree(path)
+                    print_success(f"Removed {name}")
+                elif path.is_file():
+                    path.unlink()
+                    print_success(f"Removed {name}")
+                removed_count += 1
+                progress.update(task_id, completed=removed_count)
+            except Exception as e:
+                print_error(f"Error removing {name}: {e}")
     
     # Uninstall pip package
-    typer.echo("\nðŸ“¦ Uninstalling pip package...")
+    print_loading("Uninstalling pip package...")
     try:
         result = subprocess.run(
             [sys.executable, "-m", "pip", "uninstall", "-y", "psdfy"],
@@ -98,13 +115,12 @@ def uninstall_command(
             timeout=30,
         )
         if result.returncode == 0:
-            typer.echo("   âœ“ Pip package uninstalled")
+            print_success("Pip package uninstalled")
         else:
-            typer.echo(f"   âš ï¸  Could not uninstall pip package: {result.stderr}")
+            print_error(f"Could not uninstall pip package: {result.stderr}")
     except Exception as e:
-        typer.echo(f"   âœ— Error uninstalling pip package: {e}", err=True)
+        print_error(f"Error uninstalling pip package: {e}")
     
-    typer.echo("\nâœ… Uninstall complete!")
-    typer.echo("\nTo reinstall psdfy later, run:")
-    typer.echo("   pip install psdfy")
-
+    print_success("Uninstall complete!")
+    print_status("ℹ️", "To reinstall psdfy later, run:")
+    print_status("  ", "pip install psdfy")

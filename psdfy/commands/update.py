@@ -1,10 +1,16 @@
 ﻿"""Update command implementation."""
 
-import typer
 import subprocess
 import sys
 from typing import Optional
 from psdfy import __version__
+from psdfy.progress_utils import (
+    print_status,
+    print_success,
+    print_error,
+    print_warning,
+    print_loading,
+)
 
 
 def update_command(
@@ -18,12 +24,12 @@ def update_command(
         channel: Release channel (stable or beta)
         dry_run: Show what would be updated
     """
-    typer.echo(f"[*] Checking for updates (channel: {channel})...")
+    print_loading(f"Checking for updates (channel: {channel})...")
     
     try:
         import requests
     except ImportError:
-        typer.echo("requests not installed. Install with: pip install requests", err=True)
+        print_error("requests not installed. Install with: pip install requests")
         return
     
     # Get current version
@@ -33,7 +39,7 @@ def update_command(
     except Exception:
         current_version = __version__
     
-    typer.echo(f"Current version: {current_version}")
+    print_status("📦", f"Current version: {current_version}")
     
     # Check PyPI for latest version
     try:
@@ -43,20 +49,20 @@ def update_command(
         pypi_data = response.json()
         latest_version = pypi_data["info"]["version"]
         
-        typer.echo(f"Latest version: {latest_version}")
+        print_status("📦", f"Latest version: {latest_version}")
         
         if current_version == latest_version:
-            typer.echo("âœ“ Already up to date!")
+            print_success("Already up to date!")
             return
         
-        typer.echo(f"\nðŸ“¦ Update available: {current_version} â†’ {latest_version}")
+        print_status("📦", f"Update available: {current_version} → {latest_version}")
         
         if dry_run:
-            typer.echo("(dry-run mode - no changes made)")
+            print_status("ℹ️", "(dry-run mode - no changes made)")
             return
         
         # Upgrade via pip
-        typer.echo("\nâ¬†ï¸  Upgrading psdfy...")
+        print_loading("Upgrading psdfy...")
         
         result = subprocess.run(
             [sys.executable, "-m", "pip", "install", "--upgrade", "--no-deps", "psdfy"],
@@ -65,24 +71,22 @@ def update_command(
         )
         
         if result.returncode == 0:
-            typer.echo("âœ“ Upgrade successful!")
-            typer.echo("\nNext steps:")
-            typer.echo("  1. Restart the service: psdfy stop && psdfy start")
-            typer.echo("  2. Check version: psdfy version")
+            print_success("Upgrade successful!")
+            print_status("ℹ️", "Next steps:")
+            print_status("  ", "1. Restart the service: psdfy stop && psdfy start")
+            print_status("  ", "2. Check version: psdfy version")
         else:
-            typer.echo(f"âœ— Upgrade failed: {result.stderr}", err=True)
+            print_error(f"Upgrade failed: {result.stderr}")
     
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 404:
-            typer.echo("\nâš ï¸  psdfy is not published to PyPI yet")
-            typer.echo("\nTo update from source:")
-            typer.echo("  1. Pull latest changes: git pull")
-            typer.echo("  2. Reinstall: pip install -e .")
-            typer.echo("  3. Restart: psdfy stop && psdfy start")
+            print_warning("psdfy is not published to PyPI yet")
+            print_status("ℹ️", "To update from source:")
+            print_status("  ", "1. Pull latest changes: git pull")
+            print_status("  ", "2. Reinstall: pip install -e .")
+            print_status("  ", "3. Restart: psdfy stop && psdfy start")
         else:
-            typer.echo(f"âœ— Error checking PyPI: {e}", err=True)
+            print_error(f"Error checking PyPI: {e}")
     
     except Exception as e:
-        typer.echo(f"âœ— Error checking for updates: {e}", err=True)
-
-
+        print_error(f"Error checking for updates: {e}")
