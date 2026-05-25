@@ -34,11 +34,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
       
-      - name: Commit version update
-        run: |
-          git add pyproject.toml
-          git commit -m "chore: bump version to ${{ inputs.version }}"
-      
       - name: Create and push tag
         run: |
           git tag -a v${{ inputs.version }} -m "Release v${{ inputs.version }}"
