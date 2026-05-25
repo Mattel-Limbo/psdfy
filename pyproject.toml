@@ -57,7 +57,7 @@ packages = [
     "app.api_app",
     "app.api_app.routes",
     "app.ui_app",
-    "app.ui_app.routes"
+    "app.ui_app.routes",
     "app.core",
     "app.middleware",
     "app.models",
