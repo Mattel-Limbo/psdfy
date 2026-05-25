@@ -67,6 +67,12 @@ packages = [
     "app.utils",
 ]
 
+[tool.setuptools.package-data]
+app = ["**/*.html", "**/*.css", "**/*.js"]
+
+[tool.setuptools.data-files]
+"web" = ["web/templates/*.html", "web/static/**/*"]
+
 [tool.ruff]
 line-length = 100
 target-version = "0.1.13"

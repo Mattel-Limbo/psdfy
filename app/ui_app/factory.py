@@ -56,4 +56,9 @@ def build_ui_app() -> FastAPI:
     if static_dir.exists():
         app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
     
+    # Mount templates as static files for CSS/JS if needed
+    templates_dir = Path(__file__).parent.parent.parent / "web" / "templates"
+    if templates_dir.exists():
+        app.mount("/templates", StaticFiles(directory=str(templates_dir)), name="templates")
+    
     return app
