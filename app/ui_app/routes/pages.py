@@ -13,11 +13,8 @@ def get_template_path(filename: str) -> Path:
     """Get template file path - works both in dev and installed package."""
     # Try multiple locations
     possible_paths = [
-        # Development: relative to this file
-        Path(__file__).parent.parent.parent.parent / "web" / "templates" / filename,
-        # Installed package: in site-packages
-        Path(sys.prefix) / "web" / "templates" / filename,
-        # Alternative installed location
+        # Development: relative to this file (app/web/templates)
+        # From app/ui_app/routes/pages.py -> go up 3 levels to app, then web/templates
         Path(__file__).parent.parent.parent / "web" / "templates" / filename,
     ]
     

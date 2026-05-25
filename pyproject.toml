@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "psdfy"
-version = "0.2.2"
+version = "0.2.3"
 description = "PSD layer converter and processor"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -50,6 +50,7 @@ dev = [
 psdfy = "psdfy.cli:app"
 
 [tool.setuptools]
+include-package-data = true
 packages = [
     "psdfy",
     "psdfy.commands",
@@ -65,13 +66,11 @@ packages = [
     "app.services",
     "app.storage",
     "app.utils",
+    "app.web",
 ]
 
 [tool.setuptools.package-data]
 app = ["**/*.html", "**/*.css", "**/*.js"]
-
-[tool.setuptools.data-files]
-"web" = ["web/templates/*.html", "web/static/**/*"]
 
 [tool.ruff]
 line-length = 100
