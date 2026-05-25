@@ -2,6 +2,7 @@
 
 import typer
 import sys
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -30,6 +31,20 @@ def install_command(
         no_weights: Skip downloading weights
         dry_run: Show what would be done
     """
+    # Step 0: Upgrade psdfy package from PyPI
+    typer.echo("🔄 Checking for latest psdfy version...")
+    if not dry_run:
+        try:
+            subprocess.run(
+                [sys.executable, "-m", "pip", "install", "--upgrade", "--no-deps", "psdfy"],
+                capture_output=True,
+                timeout=60,
+                check=False
+            )
+            typer.echo("   ✓ Package updated to latest version")
+        except Exception as e:
+            typer.echo(f"   ⚠️  Could not upgrade package: {e}", err=True)
+    
     config_manager = get_config_manager()
     
     typer.echo("🚀 Installing psdfy...")

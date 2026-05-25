@@ -58,7 +58,7 @@ def update_command(
         typer.echo("\n⬆️  Upgrading psdfy...")
         
         result = subprocess.run(
-            [sys.executable, "-m", "pip", "install", "--upgrade", "psdfy"],
+            [sys.executable, "-m", "pip", "install", "--upgrade", "--no-deps", "psdfy"],
             capture_output=True,
             text=True,
         )

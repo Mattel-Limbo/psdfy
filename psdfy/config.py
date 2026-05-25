@@ -128,6 +128,16 @@ installed_at = "{__import__('datetime').datetime.now().isoformat()}"
                     key, value = line.split("=", 1)
                     key = key.strip()
                     value = value.strip().strip('"')
+                    
+                    # Parse boolean values
+                    if value.lower() == "true":
+                        value = True
+                    elif value.lower() == "false":
+                        value = False
+                    # Try to parse as int
+                    elif value.isdigit():
+                        value = int(value)
+                    
                     config[current_section][key] = value
         
         return config
