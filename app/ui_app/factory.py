@@ -2,6 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pathlib import Path
+import sys
 from app.core.config import settings
 from app.core.errors import AppError, UnauthorizedError
 from app.ui_app.routes import pages, auth, proxy
@@ -51,14 +52,26 @@ def build_ui_app() -> FastAPI:
     app.include_router(auth.router)
     app.include_router(proxy.router)
     
-    # Mount static files if they exist
-    static_dir = Path(__file__).parent.parent.parent / "web" / "static"
-    if static_dir.exists():
-        app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+    # Mount static files - try multiple locations
+    static_dirs = [
+        Path(__file__).parent.parent.parent / "web" / "static",  # Dev
+        Path(sys.prefix) / "web" / "static",  # Installed
+    ]
+    
+    for static_dir in static_dirs:
+        if static_dir.exists():
+            app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
+            break
     
     # Mount templates as static files for CSS/JS if needed
-    templates_dir = Path(__file__).parent.parent.parent / "web" / "templates"
-    if templates_dir.exists():
-        app.mount("/templates", StaticFiles(directory=str(templates_dir)), name="templates")
+    template_dirs = [
+        Path(__file__).parent.parent.parent / "web" / "templates",  # Dev
+        Path(sys.prefix) / "web" / "templates",  # Installed
+    ]
+    
+    for templates_dir in template_dirs:
+        if templates_dir.exists():
+            app.mount("/templates", StaticFiles(directory=str(templates_dir)), name="templates")
+            break
     
     return app

@@ -2,18 +2,31 @@
 
 from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from pathlib import Path
 import os
+import sys
 
 router = APIRouter(tags=["ui-pages"])
 
 
 def get_template_path(filename: str) -> Path:
-    """Get template file path from project root."""
-    # Get project root (3 levels up from this file)
-    project_root = Path(__file__).parent.parent.parent.parent
-    return project_root / "web" / "templates" / filename
+    """Get template file path - works both in dev and installed package."""
+    # Try multiple locations
+    possible_paths = [
+        # Development: relative to this file
+        Path(__file__).parent.parent.parent.parent / "web" / "templates" / filename,
+        # Installed package: in site-packages
+        Path(sys.prefix) / "web" / "templates" / filename,
+        # Alternative installed location
+        Path(__file__).parent.parent.parent / "web" / "templates" / filename,
+    ]
+    
+    for path in possible_paths:
+        if path.exists():
+            return path
+    
+    # Return first path as fallback (for error message)
+    return possible_paths[0]
 
 
 @router.get("/", response_class=HTMLResponse)
