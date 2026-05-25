@@ -51,6 +51,12 @@ jobs:
       with:
         python-version: '3.11'
     
+    - name: Checkout master branch
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git checkout master
+    
     - name: Update version in pyproject.toml
       run: |
         python -c "
@@ -77,9 +83,6 @@ jobs:
     
     - name: Commit and push version update to master
       run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git checkout master
         git add pyproject.toml psdfy/__init__.py
         git commit -m "chore: bump version to ${{ steps.version.outputs.version }} [skip ci]" || true
         git push origin master
