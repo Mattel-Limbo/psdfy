@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 from typing import Optional, Dict, Any
 import uuid
+from psdfy import __version__
 
 
 class ConfigManager:
@@ -95,7 +96,7 @@ backend = "local"
 local_dir = "{self.outputs_dir}"
 
 [meta]
-version = "0.1.0"
+version = "{__version__}"
 installed_at = "{__import__('datetime').datetime.now().isoformat()}"
 """
         return config

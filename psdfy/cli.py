@@ -3,6 +3,9 @@
 import typer
 from typing import Optional
 
+# Import version
+from psdfy import __version__
+
 # Import command implementations
 from psdfy.commands.install import install_command
 from psdfy.commands.start import start_command
@@ -25,7 +28,7 @@ def version():
     Displays psdfy version, service version, Python version, 
     PyTorch device, and model checksums.
     """
-    typer.echo("psdfy version 0.1.0")
+    typer.echo(f"psdfy version {__version__}")
     typer.echo("Service: API v1.0.0 + UI v1.0.0")
     typer.echo("Python: 3.11+")
     typer.echo("Device: cpu (default)")
