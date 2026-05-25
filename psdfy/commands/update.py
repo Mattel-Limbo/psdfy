@@ -4,6 +4,7 @@ import typer
 import subprocess
 import sys
 from typing import Optional
+from psdfy import __version__
 
 
 def update_command(
@@ -17,7 +18,7 @@ def update_command(
         channel: Release channel (stable or beta)
         dry_run: Show what would be updated
     """
-    typer.echo(f"🔄 Checking for updates (channel: {channel})...")
+    typer.echo(f"[*] Checking for updates (channel: {channel})...")
     
     try:
         import requests
@@ -28,9 +29,9 @@ def update_command(
     # Get current version
     try:
         import psdfy
-        current_version = getattr(psdfy, "__version__", "0.1.0")
+        current_version = getattr(psdfy, "__version__", __version__)
     except Exception:
-        current_version = "0.1.0"
+        current_version = __version__
     
     typer.echo(f"Current version: {current_version}")
     

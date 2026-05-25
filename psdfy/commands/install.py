@@ -32,7 +32,7 @@ def install_command(
         dry_run: Show what would be done
     """
     # Step 0: Upgrade psdfy package from PyPI
-    typer.echo("🔄 Checking for latest psdfy version...")
+    typer.echo("[*] Checking for latest psdfy version...")
     if not dry_run:
         try:
             subprocess.run(
