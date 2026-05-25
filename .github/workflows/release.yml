@@ -1,4 +1,4 @@
-name: Create Release
+name: Create Release (DEPRECATED)
 
 on:
   push:
@@ -12,65 +12,14 @@ jobs:
       contents: write
     
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Extract version from tag
-      id: version
+    - name: Workflow Deprecated
       run: |
-        VERSION=${GITHUB_REF#refs/tags/v}
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "tag=$GITHUB_REF" >> $GITHUB_OUTPUT
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-    
-    - name: Checkout master branch
-      run: |
-        git fetch origin master
-        git checkout master
-    
-    - name: Update version in pyproject.toml
-      run: |
-        python -c "
-        import re
-        with open('pyproject.toml', 'r') as f:
-            content = f.read()
-        content = re.sub(r'version = \"[^\"]+\"', f'version = \"${{ steps.version.outputs.version }}\"', content)
-        with open('pyproject.toml', 'w') as f:
-            f.write(content)
-        "
-    
-    - name: Update version in psdfy/__init__.py
-      run: |
-        python -c "
-        import re
-        with open('psdfy/__init__.py', 'r') as f:
-            content = f.read()
-        content = re.sub(r'__version__ = \"[^\"]+\"', f'__version__ = \"${{ steps.version.outputs.version }}\"', content)
-        with open('psdfy/__init__.py', 'w') as f:
-            f.write(content)
-        "
-    
-    - name: Commit and push version update to master
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git add pyproject.toml psdfy/__init__.py
-        git commit -m "chore: bump version to ${{ steps.version.outputs.version }}" || true
-        git push origin master
-    
-    - name: Create Release
-      uses: softprops/action-gh-release@v1
-      with:
-        tag_name: ${{ steps.version.outputs.tag }}
-        name: Release ${{ steps.version.outputs.version }}
-        body: |
-          ## Changes in ${{ steps.version.outputs.version }}
-          
-          See commit history for details.
-        draft: false
-        prerelease: false
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        echo "This workflow is deprecated and has been replaced by:"
+        echo "- sync-tag-to-master-and-publish.yml"
+        echo ""
+        echo "The new workflow automatically:"
+        echo "1. Updates version in pyproject.toml and psdfy/__init__.py"
+        echo "2. Commits and pushes to master"
+        echo "3. Publishes to PyPI"
+        echo "4. Creates a GitHub Release"
+        exit 0
