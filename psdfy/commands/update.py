@@ -1,4 +1,4 @@
-"""Update command implementation."""
+﻿"""Update command implementation."""
 
 import typer
 import subprocess
@@ -46,17 +46,17 @@ def update_command(
         typer.echo(f"Latest version: {latest_version}")
         
         if current_version == latest_version:
-            typer.echo("✓ Already up to date!")
+            typer.echo("âœ“ Already up to date!")
             return
         
-        typer.echo(f"\n📦 Update available: {current_version} → {latest_version}")
+        typer.echo(f"\nðŸ“¦ Update available: {current_version} â†’ {latest_version}")
         
         if dry_run:
             typer.echo("(dry-run mode - no changes made)")
             return
         
         # Upgrade via pip
-        typer.echo("\n⬆️  Upgrading psdfy...")
+        typer.echo("\nâ¬†ï¸  Upgrading psdfy...")
         
         result = subprocess.run(
             [sys.executable, "-m", "pip", "install", "--upgrade", "--no-deps", "psdfy"],
@@ -65,23 +65,24 @@ def update_command(
         )
         
         if result.returncode == 0:
-            typer.echo("✓ Upgrade successful!")
+            typer.echo("âœ“ Upgrade successful!")
             typer.echo("\nNext steps:")
             typer.echo("  1. Restart the service: psdfy stop && psdfy start")
             typer.echo("  2. Check version: psdfy version")
         else:
-            typer.echo(f"✗ Upgrade failed: {result.stderr}", err=True)
+            typer.echo(f"âœ— Upgrade failed: {result.stderr}", err=True)
     
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 404:
-            typer.echo("\n⚠️  psdfy is not published to PyPI yet")
+            typer.echo("\nâš ï¸  psdfy is not published to PyPI yet")
             typer.echo("\nTo update from source:")
             typer.echo("  1. Pull latest changes: git pull")
             typer.echo("  2. Reinstall: pip install -e .")
             typer.echo("  3. Restart: psdfy stop && psdfy start")
         else:
-            typer.echo(f"✗ Error checking PyPI: {e}", err=True)
+            typer.echo(f"âœ— Error checking PyPI: {e}", err=True)
     
     except Exception as e:
-        typer.echo(f"✗ Error checking for updates: {e}", err=True)
+        typer.echo(f"âœ— Error checking for updates: {e}", err=True)
+
 

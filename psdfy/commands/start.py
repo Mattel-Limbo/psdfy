@@ -1,4 +1,4 @@
-"""Start command implementation."""
+﻿"""Start command implementation."""
 
 import typer
 import subprocess
@@ -120,47 +120,47 @@ def start_command(
     if ui_port is None:
         ui_port = int(config.get("app", {}).get("ui_port", 3457))
     
-    typer.echo("🚀 Starting psdfy service...")
+    typer.echo("ðŸš€ Starting psdfy service...")
     
     # Check if ports are already in use
     api_free = is_port_free(host, api_port)
     ui_free = is_port_free(host, ui_port)
     
     if not api_free or not ui_free:
-        typer.echo("\n⚠️  Ports already in use:")
+        typer.echo("\nâš ï¸  Ports already in use:")
         if not api_free:
             typer.echo(f"   API port {api_port} is in use")
         if not ui_free:
             typer.echo(f"   UI port {ui_port} is in use")
         
         # Try to kill existing processes on these ports
-        typer.echo("\n🔄 Attempting to kill existing processes...")
+        typer.echo("\nðŸ”„ Attempting to kill existing processes...")
         
         killed_api = False
         killed_ui = False
         
         if not api_free:
             if kill_process_by_port(api_port):
-                typer.echo(f"   ✓ Killed process on port {api_port}")
+                typer.echo(f"   âœ“ Killed process on port {api_port}")
                 killed_api = True
             else:
-                typer.echo(f"   ✗ Could not kill process on port {api_port}")
+                typer.echo(f"   âœ— Could not kill process on port {api_port}")
         
         if not ui_free:
             if kill_process_by_port(ui_port):
-                typer.echo(f"   ✓ Killed process on port {ui_port}")
+                typer.echo(f"   âœ“ Killed process on port {ui_port}")
                 killed_ui = True
             else:
-                typer.echo(f"   ✗ Could not kill process on port {ui_port}")
+                typer.echo(f"   âœ— Could not kill process on port {ui_port}")
         
         # Check again if ports are free
         time.sleep(1)
         if not is_port_free(host, api_port) or not is_port_free(host, ui_port):
-            typer.echo("\n✗ Could not free ports. Please manually stop the services.", err=True)
+            typer.echo("\nâœ— Could not free ports. Please manually stop the services.", err=True)
             return
     
     # Pre-flight checks
-    typer.echo("\n✓ Pre-flight checks:")
+    typer.echo("\nâœ“ Pre-flight checks:")
     typer.echo(f"   Ports free: {host}:{api_port}, {host}:{ui_port}")
     
     # Check weights (optional based on config)
@@ -170,7 +170,7 @@ def start_command(
     
     if enable_sam2:
         if not sam2_weights.exists():
-            typer.echo("   ⚠️  SAM 2 weights not found. Run 'psdfy install' first.", err=True)
+            typer.echo("   âš ï¸  SAM 2 weights not found. Run 'psdfy install' first.", err=True)
             return
         typer.echo(f"   Weights: OK (SAM 2 enabled)")
     else:
@@ -181,7 +181,7 @@ def start_command(
         return
     
     # Start servers
-    typer.echo("\n📡 Starting servers...")
+    typer.echo("\nðŸ“¡ Starting servers...")
     
     # Create run directory
     run_dir = config_manager.run_dir
@@ -260,12 +260,12 @@ def start_command(
             f.write(str(ui_process.pid))
         
         # Wait for health
-        typer.echo("\n⏳ Waiting for services to be ready...")
+        typer.echo("\nâ³ Waiting for services to be ready...")
         
         if wait_for_health(host, api_port):
-            typer.echo(f"   ✓ API ready: http://{host}:{api_port}")
+            typer.echo(f"   âœ“ API ready: http://{host}:{api_port}")
         else:
-            typer.echo(f"   ✗ API failed to start", err=True)
+            typer.echo(f"   âœ— API failed to start", err=True)
             # Show error log
             if api_log.exists():
                 typer.echo(f"\n   API Log ({api_log}):", err=True)
@@ -274,9 +274,9 @@ def start_command(
                         typer.echo(f"   {line.rstrip()}", err=True)
         
         if wait_for_health(host, ui_port):
-            typer.echo(f"   ✓ UI ready: http://{host}:{ui_port}")
+            typer.echo(f"   âœ“ UI ready: http://{host}:{ui_port}")
         else:
-            typer.echo(f"   ✗ UI failed to start", err=True)
+            typer.echo(f"   âœ— UI failed to start", err=True)
             # Show error log
             if ui_log.exists():
                 typer.echo(f"\n   UI Log ({ui_log}):", err=True)
@@ -284,5 +284,6 @@ def start_command(
                     for line in f.readlines()[-10:]:
                         typer.echo(f"   {line.rstrip()}", err=True)
         
-        typer.echo("\n✅ Services started!")
+        typer.echo("\nâœ… Services started!")
         typer.echo(f"\nOpen your browser: http://{host}:{ui_port}")
+

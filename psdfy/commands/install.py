@@ -1,4 +1,4 @@
-"""Install command implementation."""
+﻿"""Install command implementation."""
 
 import typer
 import sys
@@ -41,16 +41,16 @@ def install_command(
                 timeout=60,
                 check=False
             )
-            typer.echo("   ✓ Package updated to latest version")
+            typer.echo("   âœ“ Package updated to latest version")
         except Exception as e:
-            typer.echo(f"   ⚠️  Could not upgrade package: {e}", err=True)
+            typer.echo(f"   âš ï¸  Could not upgrade package: {e}", err=True)
     
     config_manager = get_config_manager()
     
-    typer.echo("🚀 Installing psdfy...")
+    typer.echo("ðŸš€ Installing psdfy...")
     
     # Step 1: Create directories
-    typer.echo("\n📁 Creating directories...")
+    typer.echo("\nðŸ“ Creating directories...")
     if not dry_run:
         config_manager.ensure_directories()
     typer.echo(f"   Config: {config_manager.config_dir}")
@@ -58,7 +58,7 @@ def install_command(
     typer.echo(f"   Outputs: {config_manager.outputs_dir}")
     
     # Step 2: Create config
-    typer.echo("\n⚙️  Creating configuration...")
+    typer.echo("\nâš™ï¸  Creating configuration...")
     if password is None:
         password = "123456"
     
@@ -80,23 +80,23 @@ def install_command(
     
     # Step 3: Download weights
     if not no_weights:
-        typer.echo("\n📥 Downloading model weights...")
+        typer.echo("\nðŸ“¥ Downloading model weights...")
         downloader = get_weights_downloader(str(config_manager.weights_dir))
         
         try:
             if not dry_run:
                 downloader.download_model("sam2", progress_callback=typer.echo)
-            typer.echo("   ✓ SAM 2 weights ready")
+            typer.echo("   âœ“ SAM 2 weights ready")
         except Exception as e:
-            typer.echo(f"   ⚠️  SAM 2 download failed: {e}", err=True)
+            typer.echo(f"   âš ï¸  SAM 2 download failed: {e}", err=True)
     
     # Step 4: Register service (if requested)
     if service:
-        typer.echo("\n🔧 Registering system service...")
+        typer.echo("\nðŸ”§ Registering system service...")
         typer.echo("   TODO: Implement service registration")
     
     # Summary
-    typer.echo("\n✅ Installation complete!")
+    typer.echo("\nâœ… Installation complete!")
     typer.echo(f"\nNext steps:")
     typer.echo(f"  1. Start the service: psdfy start")
     typer.echo(f"  2. Open browser: http://{host}:{ui_port}")
@@ -104,3 +104,4 @@ def install_command(
     
     if dry_run:
         typer.echo("\n(dry-run mode - no changes made)")
+

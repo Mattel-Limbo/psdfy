@@ -1,4 +1,4 @@
-"""Stop command implementation."""
+﻿"""Stop command implementation."""
 
 import typer
 import subprocess
@@ -97,7 +97,7 @@ def stop_command(
     api_port = int(config.get("app", {}).get("api_port", 3456))
     ui_port = int(config.get("app", {}).get("ui_port", 3457))
     
-    typer.echo("🛑 Stopping psdfy service...")
+    typer.echo("ðŸ›‘ Stopping psdfy service...")
     
     # Read PIDs from files
     api_pid_file = run_dir / "api.pid"
@@ -116,7 +116,7 @@ def stop_command(
             if verify_process_on_port(api_pid, api_port):
                 pids_to_stop.append(("API", api_pid, api_port, api_pid_file))
             else:
-                typer.echo(f"   ⚠️  API PID file exists but process not on port {api_port}")
+                typer.echo(f"   âš ï¸  API PID file exists but process not on port {api_port}")
                 api_pid = None
         except (ValueError, IOError):
             pass
@@ -125,7 +125,7 @@ def stop_command(
     if api_pid is None:
         found_pid = get_process_by_port(api_port)
         if found_pid:
-            typer.echo(f"   ℹ️  Found API process on port {api_port} (PID {found_pid})")
+            typer.echo(f"   â„¹ï¸  Found API process on port {api_port} (PID {found_pid})")
             pids_to_stop.append(("API", found_pid, api_port, api_pid_file))
     
     # Try to get UI PID
@@ -139,7 +139,7 @@ def stop_command(
             if verify_process_on_port(ui_pid, ui_port):
                 pids_to_stop.append(("UI", ui_pid, ui_port, ui_pid_file))
             else:
-                typer.echo(f"   ⚠️  UI PID file exists but process not on port {ui_port}")
+                typer.echo(f"   âš ï¸  UI PID file exists but process not on port {ui_port}")
                 ui_pid = None
         except (ValueError, IOError):
             pass
@@ -148,11 +148,11 @@ def stop_command(
     if ui_pid is None:
         found_pid = get_process_by_port(ui_port)
         if found_pid:
-            typer.echo(f"   ℹ️  Found UI process on port {ui_port} (PID {found_pid})")
+            typer.echo(f"   â„¹ï¸  Found UI process on port {ui_port} (PID {found_pid})")
             pids_to_stop.append(("UI", found_pid, ui_port, ui_pid_file))
     
     if not pids_to_stop:
-        typer.echo("ℹ️  No running services found on ports 3456 or 3457")
+        typer.echo("â„¹ï¸  No running services found on ports 3456 or 3457")
         return
     
     if dry_run:
@@ -163,7 +163,7 @@ def stop_command(
     
     # Stop services
     for name, pid, port, pid_file in pids_to_stop:
-        typer.echo(f"\n📍 Stopping {name} (PID {pid}) on port {port}...")
+        typer.echo(f"\nðŸ“ Stopping {name} (PID {pid}) on port {port}...")
         
         try:
             # Try graceful shutdown first
@@ -180,12 +180,12 @@ def stop_command(
             # Wait for graceful shutdown (up to 5 seconds)
             for i in range(10):
                 if not is_process_running(pid):
-                    typer.echo(f"   ✓ Stopped gracefully")
+                    typer.echo(f"   âœ“ Stopped gracefully")
                     break
                 time.sleep(0.5)
             else:
                 # Process still running after graceful attempt
-                typer.echo(f"   ⚠️  Graceful shutdown timeout, force killing...")
+                typer.echo(f"   âš ï¸  Graceful shutdown timeout, force killing...")
                 
                 try:
                     if sys.platform == "win32":
@@ -201,14 +201,14 @@ def stop_command(
                     # Verify it's dead
                     time.sleep(0.5)
                     if not is_process_running(pid):
-                        typer.echo(f"   ✓ Force killed")
+                        typer.echo(f"   âœ“ Force killed")
                     else:
-                        typer.echo(f"   ✗ Could not terminate process", err=True)
+                        typer.echo(f"   âœ— Could not terminate process", err=True)
                 except Exception as e:
-                    typer.echo(f"   ✗ Force kill failed: {e}", err=True)
+                    typer.echo(f"   âœ— Force kill failed: {e}", err=True)
         
         except Exception as e:
-            typer.echo(f"   ✗ Error: {e}", err=True)
+            typer.echo(f"   âœ— Error: {e}", err=True)
         
         # Remove PID file
         try:
@@ -216,4 +216,5 @@ def stop_command(
         except OSError:
             pass
     
-    typer.echo("\n✅ Services stopped!")
+    typer.echo("\nâœ… Services stopped!")
+
