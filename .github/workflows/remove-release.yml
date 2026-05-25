@@ -1,0 +1,59 @@
+name: Remove Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to remove (e.g., 0.1.13)'
+        required: true
+        type: string
+
+jobs:
+  remove-release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Delete local tag
+        run: |
+          git tag -d v${{ inputs.version }} || echo "Local tag not found"
+      
+      - name: Delete remote tag
+        run: |
+          git push origin --delete v${{ inputs.version }} || echo "Remote tag not found"
+      
+      - name: Delete GitHub Release
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const releases = await github.rest.repos.listReleases({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+            });
+            
+            const release = releases.data.find(r => r.tag_name === 'v${{ inputs.version }}');
+            
+            if (release) {
+              await github.rest.repos.deleteRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.id,
+              });
+              console.log('Release deleted successfully');
+            } else {
+              console.log('Release not found');
+            }
+      
+      - name: Verify deletion
+        run: |
+          echo "Tag v${{ inputs.version }} and release have been removed"
