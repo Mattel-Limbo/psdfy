@@ -193,3 +193,8 @@ Pastikan:
 ## Support
 
 Untuk pertanyaan atau issue, buat issue di repository dengan label `workflow`.
+
+## Workflow Status
+
+- ✅ Workflows implemented and merged to master
+- ⏳ Testing in progress...
