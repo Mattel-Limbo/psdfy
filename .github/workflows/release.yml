@@ -42,7 +42,7 @@ jobs:
       - name: Create and push tag
         run: |
           git tag -a v${{ inputs.version }} -m "Release v${{ inputs.version }}"
-          git push origin main
+          git push origin master
           git push origin v${{ inputs.version }}
       
       - name: Create GitHub Release
