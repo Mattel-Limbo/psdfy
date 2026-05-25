@@ -54,6 +54,7 @@ packages = [
     "psdfy.commands",
     "app",
     "app.api_app",
+    "app.api_app.routes",
     "app.ui_app",
     "app.core",
     "app.middleware",
