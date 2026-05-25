@@ -1,4 +1,14 @@
-name: Publish to PyPI on Push
+# This workflow has been replaced by:
+# - sync-master-to-latest-tag.yml: Syncs master to latest tag
+# - sync-tag-to-master-and-publish.yml: Syncs new tags to master and publishes to PyPI
+#
+# To use the new workflow:
+# 1. Push changes to master - this will update the latest tag (v1.0.5)
+# 2. Create a new tag: git tag -a v1.0.6 -m "Update latest tag to v1.0.6"
+# 3. Push the tag: git push origin v1.0.6
+# 4. The new tag will automatically sync to master and publish to PyPI
+
+name: Publish to PyPI on Push (DEPRECATED)
 
 on:
   push:
@@ -15,50 +25,9 @@ jobs:
     environment: pypi
     
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    
-    - name: Extract version from pyproject.toml
-      id: version
+    - name: Workflow Deprecated
       run: |
-        VERSION=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
-        echo "version=$VERSION" >> $GITHUB_OUTPUT
-        echo "tag=v$VERSION" >> $GITHUB_OUTPUT
-        echo "Current version: $VERSION"
-    
-    - name: Check if tag exists
-      id: check_tag
-      run: |
-        if git rev-parse "refs/tags/${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
-          echo "exists=true" >> $GITHUB_OUTPUT
-          echo "Tag already exists: ${{ steps.version.outputs.tag }}"
-        else
-          echo "exists=false" >> $GITHUB_OUTPUT
-          echo "Tag does not exist, will create: ${{ steps.version.outputs.tag }}"
-        fi
-    
-    - name: Create git tag
-      if: steps.check_tag.outputs.exists == 'false'
-      run: |
-        git config --local user.email "action@github.com"
-        git config --local user.name "GitHub Action"
-        git tag -a "${{ steps.version.outputs.tag }}" -m "Release ${{ steps.version.outputs.version }}"
-        git push origin "${{ steps.version.outputs.tag }}"
-    
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.11'
-    
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install build twine
-    
-    - name: Build distribution
-      run: python -m build
-    
-    - name: Publish to PyPI
-      run: |
-        python -m twine upload dist/* -u __token__ -p ${{ secrets.PYPI_API_TOKEN }} --non-interactive
+        echo "This workflow is deprecated and has been replaced by:"
+        echo "- sync-master-to-latest-tag.yml"
+        echo "- sync-tag-to-master-and-publish.yml"
+        exit 0
