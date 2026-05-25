@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "psdfy"
-version = "0.1.6"
+version = "0.1.7"
 description = "PSD layer converter and processor"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -49,7 +49,20 @@ dev = [
 psdfy = "psdfy.cli:app"
 
 [tool.setuptools]
-packages = ["psdfy", "psdfy.commands"]
+packages = [
+    "psdfy",
+    "psdfy.commands",
+    "app",
+    "app.api_app",
+    "app.ui_app",
+    "app.core",
+    "app.middleware",
+    "app.models",
+    "app.schemas",
+    "app.services",
+    "app.storage",
+    "app.utils",
+]
 
 [tool.ruff]
 line-length = 100
