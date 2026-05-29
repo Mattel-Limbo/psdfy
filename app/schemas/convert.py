@@ -8,8 +8,12 @@ from pydantic import BaseModel, Field
 class ConvertRequest(BaseModel):
     """Convert endpoint request model."""
     
-    mode: str = Field(default="auto", description="Segmentation mode: 'auto' or 'prompt'")
-    prompt: Optional[str] = Field(default=None, description="Text prompt for GroundingDINO mode")
+    mode: str = Field(
+        default="auto",
+        description="Segmentation mode: 'auto' (SAM 2) or 'prompt' (GroundingDINO). "
+                    "Available modes depend on installed models. Call GET /capabilities to check availability."
+    )
+    prompt: Optional[str] = Field(default=None, description="Text prompt for GroundingDINO mode (required when mode='prompt')")
     return_previews: bool = Field(default=False, description="Whether to return preview PNGs")
     return_metadata: bool = Field(default=True, description="Whether to return metadata.json")
 

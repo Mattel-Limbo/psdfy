@@ -272,27 +272,27 @@ def start_command(
         print_status("⏳", "Waiting for services to be ready...")
         
         with ProgressBar("⏳") as progress:
-            api_task = create_progress_task(progress, "API server", total=30, emoji="")
-            ui_task = create_progress_task(progress, "UI server", total=30, emoji="")
+            api_task = create_progress_task(progress, "API server", total=120, emoji="")
+            ui_task = create_progress_task(progress, "UI server", total=120, emoji="")
             
             start_time = time.time()
             api_ready = False
             ui_ready = False
             
-            while time.time() - start_time < 30:
+            while time.time() - start_time < 120:
                 elapsed = int(time.time() - start_time)
                 
                 if not api_ready:
                     if wait_for_health(host, api_port, timeout=1):
                         api_ready = True
-                        progress.update(api_task, completed=30)
+                        progress.update(api_task, completed=120)
                     else:
                         progress.update(api_task, completed=elapsed)
                 
                 if not ui_ready:
                     if wait_for_health(host, ui_port, timeout=1):
                         ui_ready = True
-                        progress.update(ui_task, completed=30)
+                        progress.update(ui_task, completed=120)
                     else:
                         progress.update(ui_task, completed=elapsed)
                 

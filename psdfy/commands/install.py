@@ -3,6 +3,7 @@
 import typer
 import sys
 import subprocess
+import importlib.util
 from pathlib import Path
 from typing import Optional
 import time
@@ -89,31 +90,99 @@ def install_command(
     print_status("  ", f"UI Port: {ui_port}")
     print_status("  ", f"Password: {'*' * len(password)}")
     
+    # Step 2b: Install ML dependencies
+    print_status("📦", "Installing ML dependencies...")
+    
+    # Always install torch (required by both SAM2 and DINO)
+    try:
+        if importlib.util.find_spec("torch") is None:
+            print_status("  ", "Installing torch (CPU)...")
+            if not dry_run:
+                subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "torch", "torchvision",
+                     "--index-url", "https://download.pytorch.org/whl/cpu"],
+                    check=True, timeout=300,
+                )
+                print_success("torch installed")
+        else:
+            print_status("  ", "torch already installed")
+    except Exception as e:
+        print_warning(f"torch install failed: {e}")
+
+    # Always install pytoshop (PSD writer)
+    try:
+        if importlib.util.find_spec("pytoshop") is None:
+            print_status("  ", "Installing pytoshop...")
+            if not dry_run:
+                subprocess.run(
+                    [sys.executable, "-m", "pip", "install", "pytoshop>=1.2.0"],
+                    check=True, timeout=120,
+                )
+                print_success("pytoshop installed")
+        else:
+            print_status("  ", "pytoshop already installed")
+    except Exception as e:
+        print_warning(f"pytoshop install failed: {e}")
+    
+    # Always install GroundingDINO
+    try:
+        if importlib.util.find_spec("groundingdino") is None:
+            print_status("  ", "Installing GroundingDINO...")
+            if not dry_run:
+                subprocess.run(
+                    [sys.executable, "-m", "pip", "install",
+                     "--no-build-isolation",
+                     "git+https://github.com/IDEA-Research/GroundingDINO.git"],
+                    check=True, timeout=300,
+                )
+                print_success("GroundingDINO installed")
+        else:
+            print_status("  ", "GroundingDINO already installed")
+    except Exception as e:
+        print_warning(f"GroundingDINO install failed: {e}")
+    
+    # Install SAM2 only for full install
+    if not no_weights:
+        try:
+            if importlib.util.find_spec("sam2") is None:
+                print_status("  ", "Installing SAM 2...")
+                if not dry_run:
+                    subprocess.run(
+                        [sys.executable, "-m", "pip", "install",
+                         "git+https://github.com/facebookresearch/sam2.git"],
+                        check=True, timeout=300,
+                    )
+                    print_success("SAM 2 installed")
+            else:
+                print_status("  ", "SAM 2 already installed")
+        except Exception as e:
+            print_warning(f"SAM 2 install failed: {e}")
+    
     # Step 3: Download weights
+    downloader = get_weights_downloader(str(config_manager.weights_dir))
+    
     if not no_weights:
         print_status("📥", "Downloading model weights...")
-        downloader = get_weights_downloader(str(config_manager.weights_dir))
         
         try:
             if not dry_run:
-                with DownloadProgress("📥") as progress:
-                    task_id = create_progress_task(
-                        progress, "SAM 2 model weights", total=100, emoji=""
-                    )
-                    
-                    def progress_callback(current: int, total: int):
-                        """Update progress bar during download."""
-                        if total > 0:
-                            percentage = int((current / total) * 100)
-                            progress.update(task_id, completed=percentage)
-                    
-                    downloader.download_model("sam2", progress_callback=progress_callback)
-                
+                downloader.download_model("sam2")
                 print_success("SAM 2 weights ready")
             else:
                 print_status("  ", "SAM 2 weights (dry-run)")
         except Exception as e:
             print_error(f"SAM 2 download failed: {e}")
+    
+    # Step 3b: Always download GroundingDINO weights
+    print_status("📥", "Downloading GroundingDINO weights...")
+    try:
+        if not dry_run:
+            downloader.download_model("groundingdino")
+            print_success("GroundingDINO weights ready")
+        else:
+            print_status("  ", "GroundingDINO weights (dry-run)")
+    except Exception as e:
+        print_warning(f"GroundingDINO download failed: {e}")
     
     # Step 4: Register service (if requested)
     if service:

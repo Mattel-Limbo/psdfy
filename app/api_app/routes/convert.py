@@ -2,7 +2,9 @@
 
 import uuid
 import time
+import os
 from datetime import datetime
+from pathlib import Path
 from fastapi import APIRouter, UploadFile, File, Form, Request
 from typing import Optional, List
 import numpy as np
@@ -26,6 +28,54 @@ from app.storage.local_storage import get_local_storage
 from app.schemas.convert import ConvertResponse
 
 router = APIRouter(tags=["convert"])
+
+
+def _check_package(name: str) -> bool:
+    """Check if a Python package is importable."""
+    import importlib.util
+    return importlib.util.find_spec(name) is not None
+
+
+def _get_capabilities():
+    """Get available segmentation modes based on installed models and packages."""
+    modes = []
+    sam2_available = False
+    dino_available = False
+    
+    # Check SAM2 availability: config flag + weights file + package
+    if settings.ENABLE_SAM2:
+        sam2_path = settings.SAM2_WEIGHTS_PATH or str(Path.home() / ".psdfy" / "weights" / "sam2_hiera_large.pt")
+        if os.path.exists(sam2_path) and _check_package("sam2") and _check_package("torch"):
+            modes.append("auto")
+            sam2_available = True
+    
+    # Check GroundingDINO availability: config flag + weights file + packages
+    if settings.ENABLE_GROUNDING_DINO:
+        dino_path = settings.DINO_WEIGHTS_PATH or str(Path.home() / ".psdfy" / "weights" / "groundingdino_swint_ogc.pth")
+        if os.path.exists(dino_path) and _check_package("groundingdino") and _check_package("torch"):
+            modes.append("prompt")
+            dino_available = True
+    
+    # Determine default mode
+    default_mode = "auto" if sam2_available else ("prompt" if dino_available else None)
+    
+    return {
+        "modes": modes,
+        "default_mode": default_mode,
+        "sam2_available": sam2_available,
+        "dino_available": dino_available,
+    }
+
+
+@router.get("/capabilities")
+async def get_capabilities():
+    """
+    Get available segmentation modes and model capabilities.
+    
+    Returns:
+        JSON with available modes, default mode, and model availability flags
+    """
+    return _get_capabilities()
 
 
 @router.post("/convert", response_model=ConvertResponse)
@@ -77,20 +127,35 @@ async def convert(
     storage = get_local_storage()
     
     try:
-        # Validate mode
-        if mode not in ("auto", "prompt"):
-            raise InvalidImageError(f"Invalid mode '{mode}'. Must be 'auto' or 'prompt'")
-        
-        if mode == "prompt" and not prompt:
-            raise InvalidImageError("prompt field is required when mode='prompt'")
-        
-        # Load and validate image
+        # Load and validate image first — so size/format errors surface before mode errors
         tracker.start_stage("load", "📁 Loading image...")
         load_start = time.time()
         file_bytes = await file.read()
         image_array, (orig_width, orig_height), image_format = load_image(file_bytes)
         timings["load"] = time.time() - load_start
         tracker.complete_stage("load", f"✅ Image loaded ({orig_width}x{orig_height})")
+
+        # Get available capabilities
+        capabilities = _get_capabilities()
+        available_modes = capabilities["modes"]
+
+        # Validate mode is available
+        if mode not in available_modes:
+            if mode == "auto" and not capabilities["sam2_available"]:
+                raise InvalidImageError(
+                    "SAM 2 is not installed. Use mode='prompt' or run 'psdfy install' (full)."
+                )
+            elif mode == "prompt" and not capabilities["dino_available"]:
+                raise InvalidImageError(
+                    "GroundingDINO is not installed. Run 'psdfy install' to download weights."
+                )
+            else:
+                raise InvalidImageError(
+                    f"Invalid mode '{mode}'. Available modes: {', '.join(available_modes) or 'none'}"
+                )
+
+        if mode == "prompt" and not prompt:
+            raise InvalidImageError("prompt field is required when mode='prompt'")
         
         # Segmentation
         tracker.start_stage("segmentation", "🔍 Segmenting image...")
@@ -176,6 +241,7 @@ async def convert(
                 image_format=image_format,
                 layers=layers,
                 timings=timings,
+                segmenter="GroundingDINO" if mode == "prompt" else "SAM 2",
             )
             
             # Save metadata to storage

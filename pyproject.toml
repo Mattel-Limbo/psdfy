@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "psdfy"
-version = "0.2.3"
+version = "0.3.1"
 description = "PSD layer converter and processor"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -20,29 +20,60 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "typer>=0.9.0",
+    # Web framework
     "fastapi>=0.100.0",
     "uvicorn>=0.23.0",
+    "python-multipart>=0.0.6",
+    "httpx>=0.27.0",
+    # CLI
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+    # Config & auth
     "pydantic>=2.0",
     "pydantic-settings>=2.0",
-    "python-multipart>=0.0.6",
+    "python-dotenv>=1.0.0",
     "itsdangerous>=2.0",
     "bcrypt>=4.0",
-    "requests>=2.31.0",
+    # Image processing
     "pillow>=10.0.0",
     "numpy>=1.24.0",
     "opencv-python-headless>=4.8.0",
-    "python-dotenv>=1.0.0",
-    "rich>=13.0.0",
+    "pymatting>=0.1.6",
+    # PSD output
+    "pytoshop>=1.2.0",
+    # HTTP client (install script)
+    "requests>=2.31.0",
 ]
 
 [project.optional-dependencies]
+# ML inference — torch/torchvision must be installed separately with the
+# appropriate index URL for your hardware (CPU or CUDA). Example:
+#   pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+# groundingdino and sam2 must be installed from source:
+#   pip install --no-build-isolation git+https://github.com/IDEA-Research/GroundingDINO.git
+#   pip install git+https://github.com/facebookresearch/sam2.git
+ml = [
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "transformers>=4.30.0",
+]
+# S3-compatible object storage backend
+storage = [
+    "boto3>=1.26.0",
+]
+# Async job queue (requires a running Redis instance)
+queue = [
+    "arq>=0.25.0",
+    "redis>=4.0.0",
+]
 dev = [
     "ruff>=0.1.0",
     "black>=23.0.0",
     "pytest>=7.0.0",
+    "pytest-asyncio>=0.23.0",
     "pre-commit>=3.0.0",
 ]
 
@@ -72,9 +103,13 @@ packages = [
 [tool.setuptools.package-data]
 app = ["**/*.html", "**/*.css", "**/*.js"]
 
+[tool.pytest.ini_options]
+asyncio_mode = "strict"
+testpaths = ["tests"]
+
 [tool.ruff]
 line-length = 100
-target-version = "0.1.13"
+target-version = "py311"
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I"]

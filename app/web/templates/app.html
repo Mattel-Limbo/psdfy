@@ -281,10 +281,13 @@
                     <div id="progressDiv" class="hidden">
                         <div class="bg-white border-4 border-black p-8">
                             <p class="font-bold mb-4">Mengkonversi...</p>
-                            <div class="w-full bg-gray-300 border-3 border-black h-6">
-                                <div id="progressBar" class="bg-FFD700 h-full" style="width: 0%"></div>
+                            <div class="w-full bg-gray-300 border-3 border-black h-6 overflow-hidden">
+                                <div id="progressBar" class="h-full transition-all duration-500" style="width: 0%; background: #FF1493;"></div>
                             </div>
-                            <p id="progressText" class="text-sm font-bold mt-2">Inisialisasi...</p>
+                            <div class="flex justify-between items-center mt-2">
+                                <p id="progressText" class="text-sm font-bold">Inisialisasi...</p>
+                                <p id="progressPct" class="text-sm font-black">0%</p>
+                            </div>
                         </div>
                     </div>
 
@@ -322,6 +325,74 @@
     </div>
 
     <script>
+        // Load capabilities on page load
+        async function loadCapabilities() {
+            try {
+                const response = await fetch('/api/capabilities');
+                const capabilities = await response.json();
+                
+                const modeSelect = document.getElementById('modeSelect');
+                const convertBtn = document.getElementById('convertBtn');
+                
+                // Clear existing options
+                modeSelect.innerHTML = '';
+                
+                // Add options based on available modes
+                if (capabilities.modes.length === 0) {
+                    // No models available
+                    modeSelect.innerHTML = '<option disabled>No models installed</option>';
+                    convertBtn.disabled = true;
+                    
+                    // Show banner
+                    const banner = document.createElement('div');
+                    banner.className = 'bg-red-500 text-white border-4 border-black p-4 mb-4 font-bold';
+                    banner.textContent = 'No models installed. Run "psdfy install" first.';
+                    document.querySelector('.page-content').insertBefore(banner, document.querySelector('.page-content').firstChild);
+                } else {
+                    // Add available modes
+                    if (capabilities.modes.includes('auto')) {
+                        const option = document.createElement('option');
+                        option.value = 'auto';
+                        option.textContent = 'Otomatis (SAM 2)';
+                        modeSelect.appendChild(option);
+                    }
+                    
+                    if (capabilities.modes.includes('prompt')) {
+                        const option = document.createElement('option');
+                        option.value = 'prompt';
+                        option.textContent = 'Text Prompt (GroundingDINO)';
+                        modeSelect.appendChild(option);
+                    }
+                    
+                    // Set default mode
+                    if (capabilities.default_mode) {
+                        modeSelect.value = capabilities.default_mode;
+                    }
+                    
+                    // Show/hide prompt div based on default mode
+                    const promptDiv = document.getElementById('promptDiv');
+                    if (capabilities.default_mode === 'prompt') {
+                        promptDiv.classList.remove('hidden');
+                    } else {
+                        promptDiv.classList.add('hidden');
+                    }
+                    
+                    convertBtn.disabled = false;
+                }
+            } catch (error) {
+                console.error('Failed to load capabilities:', error);
+                // Fallback to default options
+                const modeSelect = document.getElementById('modeSelect');
+                modeSelect.innerHTML = `
+                    <option value="auto">Otomatis (SAM 2)</option>
+                    <option value="prompt">Text Prompt (GroundingDINO)</option>
+                `;
+            }
+        }
+        
+        // Load capabilities when page loads
+        document.addEventListener('DOMContentLoaded', loadCapabilities);
+
         // Page navigation
         document.querySelectorAll('.sidebar-item').forEach(item => {
             item.addEventListener('click', () => {
@@ -350,8 +421,10 @@
             const promptDiv = document.getElementById('promptDiv');
             if (e.target.value === 'prompt') {
                 promptDiv.classList.remove('hidden');
+                document.getElementById('promptInput').required = true;
             } else {
                 promptDiv.classList.add('hidden');
+                document.getElementById('promptInput').required = false;
             }
         });
 
@@ -389,6 +462,82 @@
             }
         });
 
+        // Animated progress bar during conversion.
+        // Stages advance asymptotically toward their target — never hits 100%
+        // until the server responds, then snaps to 100%.
+        let _progressInterval = null;
+
+        function startProgressAnimation(mode) {
+            const stages = mode === 'auto' ? [
+                { label: 'Memuat gambar...',          target: 5,   ms: 1500  },
+                { label: 'Memuat model SAM 2...',     target: 12,  ms: 8000  },
+                { label: 'Segmentasi otomatis...',    target: 78,  ms: 90000 },
+                { label: 'Post-processing mask...',   target: 83,  ms: 3000  },
+                { label: 'Membangun layer...',        target: 92,  ms: 5000  },
+                { label: 'Menulis file PSD...',       target: 98,  ms: 5000  },
+            ] : [
+                { label: 'Memuat gambar...',          target: 5,   ms: 1500  },
+                { label: 'Memuat GroundingDINO...',   target: 12,  ms: 5000  },
+                { label: 'Deteksi objek...',          target: 72,  ms: 15000 },
+                { label: 'Post-processing mask...',   target: 80,  ms: 2000  },
+                { label: 'Membangun layer...',        target: 90,  ms: 4000  },
+                { label: 'Menulis file PSD...',       target: 98,  ms: 4000  },
+            ];
+
+            let stageIdx = 0;
+            let currentPct = 0;
+            const bar = document.getElementById('progressBar');
+            const text = document.getElementById('progressText');
+            const pct = document.getElementById('progressPct');
+
+            function setProgress(p, label) {
+                currentPct = Math.min(98, p);
+                bar.style.width = currentPct + '%';
+                pct.textContent = Math.round(currentPct) + '%';
+                if (label) text.textContent = label;
+            }
+
+            setProgress(0, stages[0].label);
+
+            _progressInterval = setInterval(() => {
+                if (stageIdx >= stages.length) return;
+                const stage = stages[stageIdx];
+                // Asymptotic advance: move 8% of remaining gap each tick
+                const gap = stage.target - currentPct;
+                const step = Math.max(0.3, gap * 0.08);
+                const next = currentPct + step;
+
+                if (next >= stage.target - 0.5) {
+                    setProgress(stage.target, stage.label);
+                    stageIdx++;
+                    if (stageIdx < stages.length) {
+                        text.textContent = stages[stageIdx].label;
+                    }
+                } else {
+                    setProgress(next, stage.label);
+                }
+            }, 400);
+        }
+
+        function stopProgressAnimation(success) {
+            if (_progressInterval) {
+                clearInterval(_progressInterval);
+                _progressInterval = null;
+            }
+            const bar = document.getElementById('progressBar');
+            const pct = document.getElementById('progressPct');
+            const text = document.getElementById('progressText');
+            if (success) {
+                bar.style.width = '100%';
+                pct.textContent = '100%';
+                text.textContent = 'Selesai!';
+                bar.style.background = '#00CED1';
+            } else {
+                bar.style.background = '#ef4444';
+                text.textContent = 'Gagal.';
+            }
+        }
+
         // Convert
         document.getElementById('convertBtn').addEventListener('click', async () => {
             if (!selectedFile) {
@@ -396,10 +545,11 @@
                 return;
             }
 
+            const mode = document.getElementById('modeSelect').value;
             const formData = new FormData();
             formData.append('file', selectedFile);
-            formData.append('mode', document.getElementById('modeSelect').value);
-            if (document.getElementById('modeSelect').value === 'prompt') {
+            formData.append('mode', mode);
+            if (mode === 'prompt') {
                 formData.append('prompt', document.getElementById('promptInput').value);
             }
             formData.append('return_previews', document.getElementById('previewsCheckbox').checked);
@@ -409,35 +559,63 @@
             document.getElementById('progressDiv').classList.remove('hidden');
             document.getElementById('resultsDiv').classList.add('hidden');
 
+            // Reset bar
+            const bar = document.getElementById('progressBar');
+            bar.style.background = '#FF1493';
+            bar.style.width = '0%';
+            document.getElementById('progressPct').textContent = '0%';
+            document.getElementById('progressText').textContent = 'Inisialisasi...';
+
+            startProgressAnimation(mode);
+
             try {
                 const response = await fetch('/ui/convert', {
                     method: 'POST',
                     body: formData,
                 });
 
-                if (response.ok) {
-                    const data = await response.json();
-                    
-                    // Save to local storage
-                    const results = JSON.parse(localStorage.getItem('psdfy_results') || '[]');
-                    results.push({
-                        id: Date.now(),
-                        filename: selectedFile.name,
-                        psdUrl: data.psd.url,
-                        date: new Date().toLocaleString(),
-                        mode: document.getElementById('modeSelect').value
-                    });
-                    localStorage.setItem('psdfy_results', JSON.stringify(results));
-                    
-                    document.getElementById('downloadLink').href = data.psd.url;
+                const data = await response.json();
+
+                // Check for error in response body (proxy always returns 200)
+                if (data.error) {
+                    throw new Error(data.error.message || 'Konversi gagal');
+                }
+
+                if (!response.ok) {
+                    throw new Error('Konversi gagal: ' + response.status);
+                }
+
+                if (!data.psd || !data.psd.url) {
+                    throw new Error('Respons tidak valid: URL PSD tidak ditemukan');
+                }
+
+                stopProgressAnimation(true);
+
+                // Save to local storage
+                const results = JSON.parse(localStorage.getItem('psdfy_results') || '[]');
+                results.push({
+                    id: Date.now(),
+                    filename: selectedFile.name,
+                    psdUrl: data.psd.url,
+                    date: new Date().toLocaleString(),
+                    mode: mode,
+                });
+                localStorage.setItem('psdfy_results', JSON.stringify(results));
+
+                document.getElementById('downloadLink').href = data.psd.url;
+                const baseName = selectedFile.name.replace(/\.[^.]+$/, '');
+                document.getElementById('downloadLink').download = baseName + '.psd';
+
+                setTimeout(() => {
                     document.getElementById('progressDiv').classList.add('hidden');
                     document.getElementById('resultsDiv').classList.remove('hidden');
-                } else {
-                    throw new Error('Konversi gagal');
-                }
+                }, 600);
             } catch (error) {
-                alert('Error: ' + error.message);
-                document.getElementById('progressDiv').classList.add('hidden');
+                stopProgressAnimation(false);
+                setTimeout(() => {
+                    alert('Error: ' + error.message);
+                    document.getElementById('progressDiv').classList.add('hidden');
+                }, 800);
             } finally {
                 document.getElementById('convertBtn').disabled = false;
             }
@@ -451,6 +629,35 @@
             fileInput.value = '';
         });
 
+        // Migrate legacy localStorage URLs from direct API URLs to UI proxy paths.
+        // Old entries stored http://localhost:3456/files/... which now requires auth headers.
+        function migrateStoredResults() {
+            try {
+                const results = JSON.parse(localStorage.getItem('psdfy_results') || '[]');
+                let changed = false;
+                const rewrite = (url) => {
+                    if (!url) return url;
+                    // Match http(s)://host:port/files/job/file → /ui/files/job/file
+                    const m = url.match(/^https?:\/\/[^/]+\/files\/(.+)$/);
+                    if (m) { changed = true; return '/ui/files/' + m[1]; }
+                    return url;
+                };
+                const migrated = results.map(r => ({ ...r, psdUrl: rewrite(r.psdUrl) }));
+                if (changed) localStorage.setItem('psdfy_results', JSON.stringify(migrated));
+            } catch (_) {}
+        }
+        migrateStoredResults();
+
+        // Escape HTML to prevent XSS when rendering user-controlled strings
+        function escapeHtml(str) {
+            return String(str)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
         // Load results
         function loadResults() {
             const results = JSON.parse(localStorage.getItem('psdfy_results') || '[]');
@@ -461,18 +668,20 @@
                 return;
             }
             
-            resultsList.innerHTML = results.map(result => `
+            resultsList.innerHTML = results.map(result => {
+                const baseName = (result.filename || 'output').replace(/\.[^.]+$/, '');
+                return `
                 <div class="result-item">
                     <div class="result-info">
-                        <div class="result-filename">${result.filename}</div>
-                        <div class="result-date">${result.date}</div>
+                        <div class="result-filename">${escapeHtml(result.filename)}</div>
+                        <div class="result-date">${escapeHtml(result.date)}</div>
                     </div>
                     <div class="result-actions">
-                        <a href="${result.psdUrl}" download class="btn-small">⬇️ Download</a>
-                        <button class="btn-small" onclick="deleteResult(${result.id})">🗑️ Hapus</button>
+                        <a href="${escapeHtml(result.psdUrl)}" download="${escapeHtml(baseName)}.psd" class="btn-small">⬇️ Download</a>
+                        <button class="btn-small" onclick="deleteResult(${Number(result.id)})">🗑️ Hapus</button>
                     </div>
-                </div>
-            `).join('');
+                </div>`;
+            }).join('');
         }
 
         function deleteResult(id) {

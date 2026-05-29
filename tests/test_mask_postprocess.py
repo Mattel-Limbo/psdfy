@@ -56,16 +56,26 @@ def test_filter_by_area_removes_small_masks(postprocessor):
 def test_filter_by_area_removes_large_masks(postprocessor):
     """Test that masks covering > 95% of image are filtered out."""
     image_shape = (256, 256)
-    
-    # Create a very large mask (> 95% of image)
-    large_mask = create_test_mask(area_ratio=0.96)
-    
+    total_pixels = image_shape[0] * image_shape[1]
+
+    # Create a very large mask (> 95% of image) using a rectangle, not a circle
+    # (a circle can only cover ~78.5% of a square at most)
+    large_mask_array = np.zeros((256, 256), dtype=np.bool_)
+    large_mask_array[:250, :250] = True  # covers ~95.4% of 256x256
+    large_mask = Mask(
+        mask=large_mask_array,
+        bbox={"top": 0, "left": 0, "bottom": 250, "right": 250},
+        area=int(large_mask_array.sum()),
+        score=0.9,
+        label="test_object",
+    )
+
     # Create a normal mask
     normal_mask = create_test_mask(area_ratio=0.1)
-    
+
     masks = [large_mask, normal_mask]
-    filtered = postprocessor._filter_by_area(masks, image_shape[0] * image_shape[1])
-    
+    filtered = postprocessor._filter_by_area(masks, total_pixels)
+
     # Large mask should be removed
     assert len(filtered) == 1
     assert filtered[0].label == "test_object"

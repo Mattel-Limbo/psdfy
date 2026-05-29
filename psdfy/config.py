@@ -88,8 +88,8 @@ signature_ttl_seconds = 86400
 [models]
 sam2_weights_path = "{self.weights_dir}/sam2_hiera_large.pt"
 enable_sam2 = {"true" if enable_sam2 else "false"}
-enable_grounding_dino = false
-dino_weights_path = "{self.weights_dir}/groundingdino_swinb_cogvlm.pth"
+enable_grounding_dino = true
+dino_weights_path = "{self.weights_dir}/groundingdino_swint_ogc.pth"
 
 [storage]
 backend = "local"

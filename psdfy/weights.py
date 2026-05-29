@@ -14,13 +14,17 @@ class WeightsDownloader:
     # Model URLs and checksums
     MODELS = {
         "sam2": {
-            "url": "https://dl.fbaipublicfiles.com/segment_anything_2/sam2_hiera_large.pt",
+            # Versioned URL (092824 release) — matches key names expected by
+            # the current sam2 package. The old unversioned URL produced
+            # checkpoints with different key names (transformer.encoder.*,
+            # maskmem_backbone.*) that require remapping in sam2_loader.py.
+            "url": "https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2_hiera_large.pt",
             "filename": "sam2_hiera_large.pt",
             "sha256": "unknown",  # TODO: Get actual checksum
         },
         "groundingdino": {
-            "url": "https://huggingface.co/ShilongLiu/GroundingDINO/resolve/main/groundingdino_swinb_cogvlm.pth",
-            "filename": "groundingdino_swinb_cogvlm.pth",
+            "url": "https://github.com/IDEA-Research/GroundingDINO/releases/download/v0.1.0-alpha/groundingdino_swint_ogc.pth",
+            "filename": "groundingdino_swint_ogc.pth",
             "sha256": "unknown",  # TODO: Get actual checksum
         },
     }
@@ -73,12 +77,40 @@ class WeightsDownloader:
             progress_callback(f"Downloading {model_name}...")
         
         try:
-            urllib.request.urlretrieve(
+            # Create request with User-Agent header
+            request = urllib.request.Request(
                 model_info["url"],
-                file_path,
-                reporthook=self._make_progress_hook(progress_callback),
+                headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                }
             )
+            
+            # Download file
+            with urllib.request.urlopen(request) as response:
+                total_size = int(response.headers.get('content-length', 0))
+                block_size = 8192
+                downloaded = 0
+                
+                with open(file_path, 'wb') as f:
+                    while True:
+                        chunk = response.read(block_size)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        
+                        # Call progress callback
+                        if progress_callback and total_size > 0:
+                            progress_callback(f"Downloading {model_name}... {downloaded}/{total_size} bytes")
         except urllib.error.URLError as e:
+            # Clean up partial download
+            if file_path.exists():
+                file_path.unlink()
+            raise RuntimeError(f"Failed to download {model_name}: {e}")
+        except Exception as e:
+            # Clean up partial download
+            if file_path.exists():
+                file_path.unlink()
             raise RuntimeError(f"Failed to download {model_name}: {e}")
         
         # Verify checksum if available

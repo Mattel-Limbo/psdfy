@@ -7,7 +7,7 @@ import cv2
 from app.core.config import settings
 from app.core.errors import SegmentationError
 from app.schemas.mask import Mask
-from app.utils.geometry import calculate_iou
+from app.utils.geometry import calculate_iou, calculate_bbox
 
 
 class MaskPostprocessor:
@@ -120,8 +120,8 @@ class MaskPostprocessor:
             )
             
             if contours:
-                # Create filled mask
-                filled = np.zeros_like(mask.mask)
+                # Create filled mask — must be uint8, not bool (OpenCV requirement)
+                filled = np.zeros(mask.mask.shape, dtype=np.uint8)
                 cv2.drawContours(filled, contours, 0, 1, -1)
                 mask.mask = filled.astype(np.bool_)
                 mask.area = int(mask.mask.sum())

@@ -1,5 +1,6 @@
 """Progress bar utilities with emoji support for CLI operations."""
 
+import sys
 from typing import Optional, Callable, Any
 from rich.progress import (
     Progress,
@@ -13,7 +14,17 @@ from rich.progress import (
 )
 from rich.console import Console
 
-console = Console()
+# Reconfigure stdout/stderr to UTF-8 on Windows so emoji don't crash cp1252
+if sys.platform == "win32":
+    for _stream in ("stdout", "stderr"):
+        _s = getattr(sys, _stream, None)
+        if _s is not None and hasattr(_s, "reconfigure"):
+            try:
+                _s.reconfigure(encoding="utf-8")
+            except Exception:
+                pass
+
+console = Console(legacy_windows=False)
 
 
 class ProgressBar:

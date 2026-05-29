@@ -42,29 +42,42 @@ Then:
 3. Click "Convert to PSD"
 4. Download your layered PSD file
 
-### Option 1b: Install Without Weights (Lightweight)
+### Option 1b: Lightweight Install (GroundingDINO Only)
 
-If you want to set up psdfy without downloading the large model weights (5GB+), use:
+If you want to set up psdfy without downloading the large SAM2 model weights (2GB+), use:
 
 ```bash
 # Install psdfy
 pip install psdfy
 
-# Run installation wizard without downloading weights
+# Run installation wizard without SAM2 weights
 psdfy install --no-weights
-
-# Later, download weights when ready
-psdfy install --download-weights-only
 
 # Start the service
 psdfy start
 ```
 
-This is useful for:
-- Setting up on servers with limited bandwidth
+**What you get with `--no-weights`:**
+- ✅ GroundingDINO model (text-prompt based detection)
+- ✅ Web UI with "Text Prompt" mode only
+- ❌ SAM2 automatic segmentation (requires full install)
+- ❌ "Auto" mode in the UI (hidden)
+
+**When to use this:**
+- Setting up on servers with limited bandwidth or disk space
 - Testing the UI before committing to full installation
-- Downloading weights on a separate machine
-- Running without SAM2 segmentation (basic functionality only)
+- Running text-prompt-only workflows
+- Downloading SAM2 weights later on a separate machine
+
+**Upgrading to full install:**
+```bash
+# Download SAM2 weights later
+psdfy install
+```
+
+This will add SAM2 support and enable the "Auto" mode in the UI.
+
+**Note:** The combined "GroundingDINO + SAM2" refinement mode is coming soon.
 
 ### Option 2: Docker (Recommended)
 
@@ -255,7 +268,34 @@ client_secret = "..."
 
 [models]
 sam2_weights_path = "~/.psdfy/weights/sam2_hiera_large.pt"
-enable_grounding_dino = false
+enable_sam2 = true                                          # Set to false with --no-weights
+dino_weights_path = "~/.psdfy/weights/groundingdino_swint_ogc.pth"
+enable_grounding_dino = true                                # Always true after install
+```
+
+**Model Availability:**
+
+The UI automatically detects which models are available and shows only the corresponding segmentation modes:
+
+| Install Command | `enable_sam2` | `enable_grounding_dino` | UI Modes Available |
+|-----------------|---------------|------------------------|-------------------|
+| `psdfy install` | `true` | `true` | Auto (SAM 2), Text Prompt |
+| `psdfy install --no-weights` | `false` | `true` | Text Prompt only |
+
+To check available modes programmatically, call `GET /capabilities`:
+
+```bash
+curl http://localhost:3456/api/capabilities
+```
+
+Response:
+```json
+{
+  "modes": ["auto", "prompt"],
+  "default_mode": "auto",
+  "sam2_available": true,
+  "dino_available": true
+}
 ```
 
 ---

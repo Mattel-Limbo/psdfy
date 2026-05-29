@@ -9,12 +9,12 @@ class ClientSignatureRequest(BaseModel):
     clientSecret: str = Field(
         ...,
         description="Client secret (must be UUIDv4)",
-        example="28bf6f2e-fd48-4778-bcd1-edc20726ea0e",
+        json_schema_extra={"example": "28bf6f2e-fd48-4778-bcd1-edc20726ea0e"},
     )
     clientUnixTimestamps: str = Field(
         ...,
         description="Unix timestamp as string",
-        example="1779424129",
+        json_schema_extra={"example": "1779424129"},
     )
 
 

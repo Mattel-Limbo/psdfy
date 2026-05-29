@@ -2,12 +2,12 @@
 
 from fastapi import APIRouter, Request, Form, Response
 from pydantic import BaseModel
+import hmac
 import uuid
-from datetime import datetime, timedelta
-import itsdangerous
 
 from app.core.config import settings
 from app.core.errors import UnauthorizedError
+from app.middleware.ui_session import _get_ui_signer
 
 router = APIRouter(tags=["ui-auth"])
 
@@ -44,16 +44,14 @@ async def login(
     # Verify password (from config or default)
     correct_password = settings.UI_PASSWORD
     
-    if password != correct_password:
+    if not hmac.compare_digest(password, correct_password):
         raise UnauthorizedError("Invalid password")
     
     # Generate session ID
     session_id = str(uuid.uuid4())
     
-    # Create signed cookie
-    signer = itsdangerous.TimestampSigner(
-        settings.SIGNATURE_SECRET_PEPPER or "default-secret"
-    )
+    # Create signed cookie using the same signer as UISessionMiddleware
+    signer = _get_ui_signer()
     cookie_value = signer.sign(session_id)
     
     # Ensure cookie_value is string (not bytes)
